@@ -7,6 +7,10 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth & Users
+// ─────────────────────────────────────────────────────────────────────────────
+
 enum UserRole {
   ADMIN
   TEAM
@@ -25,8 +29,12 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts Account[]
-  sessions Session[]
+  accounts       Account[]
+  sessions       Session[]
+  clientMembers  ClientMember[]
+  creatorProfile Creator?
+  contentReviews ContentRevision[] @relation("ContentReviewer")
+  notifications  Notification[]
 }
 
 model Account {
@@ -62,4 +70,294 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Clients
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  legalName String?
+  industry  String?
+  website   String?
+  email     String?
+  phone     String?
+  logoUrl   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members   ClientMember[]
+  campaigns Campaign[]
+}
+
+model ClientMember {
+  id        String   @id @default(cuid())
+  clientId  String
+  userId    String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Creators
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SocialPlatform {
+  INSTAGRAM
+  TIKTOK
+}
+
+model Creator {
+  id               String   @id @default(cuid())
+  userId           String?  @unique
+  fullName         String
+  email            String?
+  phone            String?
+  city             String?
+  country          String?  @default("Colombia")
+  bio              String?
+  profileImageUrl  String?
+  niches           String[] @default([])
+  internalRating   Int?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  socialProfiles   CreatorSocialProfile[]
+  campaignCreators CampaignCreator[]
+}
+
+model CreatorSocialProfile {
+  id             String         @id @default(cuid())
+  creatorId      String
+  platform       SocialPlatform
+  handle         String
+  url            String?
+  followers      Int?
+  avgEngagement  Float?
+  lastSyncedAt   DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([creatorId, platform])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campaigns
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  IN_REVIEW
+  PUBLISHING
+  COMPLETED
+  CANCELLED
+}
+
+model Campaign {
+  id              String         @id @default(cuid())
+  clientId        String
+  code            String         @unique
+  name            String
+  status          CampaignStatus @default(DRAFT)
+  objective       String?
+  budget          Decimal?       @db.Decimal(14, 2)
+  startDate       DateTime?
+  endDate         DateTime?
+  briefOriginal   String?
+  briefOptimized  String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  client           Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  campaignCreators CampaignCreator[]
+}
+
+enum CampaignCreatorStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  ONBOARDING
+  ACTIVE
+  COMPLETED
+  REMOVED
+}
+
+model CampaignCreator {
+  id                     String                @id @default(cuid())
+  campaignId             String
+  creatorId              String
+  status                 CampaignCreatorStatus @default(INVITED)
+  fee                    Decimal?              @db.Decimal(14, 2)
+  invitedAt              DateTime              @default(now())
+  acceptedAt             DateTime?
+  onboardingCompletedAt  DateTime?
+  completedAt            DateTime?
+  notes                  String?
+
+  campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creator       Creator        @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+  contentPieces ContentPiece[]
+  payment       Payment?
+
+  @@unique([campaignId, creatorId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ContentType {
+  REEL
+  POST
+  STORY
+  CAROUSEL
+  VIDEO
+}
+
+enum ContentStatus {
+  IDEA
+  SCRIPT
+  INTERNAL_REVIEW
+  CLIENT_REVIEW
+  APPROVED
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+model ContentPiece {
+  id                  String         @id @default(cuid())
+  campaignCreatorId   String
+  title               String
+  type                ContentType
+  platform            SocialPlatform
+  status              ContentStatus  @default(IDEA)
+  description         String?
+  script              String?
+  caption             String?
+  plannedPublishDate  DateTime?
+  actualPublishDate   DateTime?
+  publishedUrl        String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  campaignCreator CampaignCreator    @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
+  revisions       ContentRevision[]
+  metrics         ContentMetric[]
+}
+
+model ContentRevision {
+  id             String   @id @default(cuid())
+  contentPieceId String
+  version        Int
+  body           String
+  feedback       String?
+  reviewerId     String?
+  createdAt      DateTime @default(now())
+
+  contentPiece ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
+  reviewer     User?        @relation("ContentReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@unique([contentPieceId, version])
+}
+
+model ContentMetric {
+  id             String   @id @default(cuid())
+  contentPieceId String
+  views          Int?
+  likes          Int?
+  comments       Int?
+  saves          Int?
+  shares         Int?
+  reach          Int?
+  impressions    Int?
+  capturedAt     DateTime @default(now())
+
+  contentPiece ContentPiece @relation(fields: [contentPieceId], references: [id], onDelete: Cascade)
+
+  @@index([contentPieceId, capturedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Payments
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  DOCS_SUBMITTED
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum PaymentDocumentType {
+  CUENTA_DE_COBRO
+  RUT
+  CERTIFICACION_BANCARIA
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  campaignCreatorId String        @unique
+  amount            Decimal       @db.Decimal(14, 2)
+  status            PaymentStatus @default(PENDING)
+  dueDate           DateTime?
+  paidAt            DateTime?
+  notes             String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  campaignCreator CampaignCreator   @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
+  documents       PaymentDocument[]
+}
+
+model PaymentDocument {
+  id         String              @id @default(cuid())
+  paymentId  String
+  type       PaymentDocumentType
+  fileUrl    String
+  fileName   String?
+  uploadedAt DateTime            @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, type])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  WHATSAPP
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  channel   NotificationChannel @default(IN_APP)
+  title     String
+  body      String
+  link      String?
+  read      Boolean             @default(false)
+  sentAt    DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, sentAt])
 }
