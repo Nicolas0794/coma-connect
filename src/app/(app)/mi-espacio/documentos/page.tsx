@@ -1,12 +1,13 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PdfUploadForm } from "@/components/pdf-upload-form";
 
-async function uploadDocs(formData: FormData) {
+async function saveDocumentId(formData: FormData) {
   "use server";
   const session = await auth();
   if (session?.user?.role !== "CREATOR") return;
@@ -16,40 +17,16 @@ async function uploadDocs(formData: FormData) {
   });
   if (!creator) return;
 
-  const documentId = (formData.get("documentId") as string)?.trim() || creator.documentId;
-  const rutUrl = (formData.get("rutUrl") as string)?.trim() || creator.rutUrl;
-  const certBancariaUrl = (formData.get("certBancariaUrl") as string)?.trim() || creator.certBancariaUrl;
-
-  const docsCompleted = !!documentId && !!rutUrl && !!certBancariaUrl;
+  const documentId = (formData.get("documentId") as string)?.trim();
+  if (!documentId) return;
 
   await prisma.creator.update({
     where: { id: creator.id },
-    data: { documentId, rutUrl, certBancariaUrl, docsCompleted },
+    data: {
+      documentId,
+      docsCompleted: !!creator.rutUrl && !!creator.certBancariaUrl,
+    },
   });
-
-  redirect("/mi-espacio/documentos");
-}
-
-async function uploadCuentaCobro(formData: FormData) {
-  "use server";
-  const paymentId = formData.get("paymentId") as string;
-  const fileUrl = (formData.get("fileUrl") as string)?.trim();
-
-  if (!paymentId || !fileUrl) return;
-
-  await prisma.paymentDocument.upsert({
-    where: { paymentId_type: { paymentId, type: "CUENTA_DE_COBRO" } },
-    update: { fileUrl },
-    create: { paymentId, type: "CUENTA_DE_COBRO", fileUrl },
-  });
-
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
-  if (payment && payment.status === "PENDING") {
-    await prisma.payment.update({
-      where: { id: paymentId },
-      data: { status: "DOCS_SUBMITTED" },
-    });
-  }
 
   redirect("/mi-espacio/documentos");
 }
@@ -87,6 +64,8 @@ export default async function DocumentosCreadoraPage() {
     );
   }
 
+  const docsComplete = !!creator.documentId && !!creator.rutUrl && !!creator.certBancariaUrl;
+
   const campaignsWithPayment = creator.campaignCreators.filter(
     (cc) => cc.payment && cc.contentPieces.length > 0
   );
@@ -100,11 +79,11 @@ export default async function DocumentosCreadoraPage() {
         <h1 className="text-2xl text-foreground mt-2">Mis documentos</h1>
       </div>
 
-      {/* Documentos personales — una sola vez */}
+      {/* Documentos personales */}
       <div className="rounded-xl border border-border bg-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-foreground">Documentos personales</h2>
-          {creator.docsCompleted ? (
+          {docsComplete ? (
             <Badge className="bg-[#D6E889]/30 text-lime-700">Completos</Badge>
           ) : (
             <Badge className="bg-[#F4D79D]/30 text-amber-700">Pendientes</Badge>
@@ -114,68 +93,65 @@ export default async function DocumentosCreadoraPage() {
           Estos documentos se suben una sola vez y quedan guardados en tu perfil.
         </p>
 
-        <form action={uploadDocs} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Número de documento (cédula)</Label>
-            <Input
-              name="documentId"
-              defaultValue={creator.documentId ?? ""}
-              placeholder="Ej: 1234567890"
-            />
-            {creator.documentId && (
-              <p className="text-[10px] text-lime-600">✓ Guardado</p>
-            )}
-          </div>
+        <div className="space-y-3">
+          {/* Cédula */}
+          {creator.documentId ? (
+            <div className="flex items-center justify-between rounded-lg bg-[#D6E889]/10 border border-[#D6E889]/30 px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-lime-600 text-sm">✓</span>
+                <span className="text-xs text-foreground">Cédula: {creator.documentId}</span>
+              </div>
+            </div>
+          ) : (
+            <form action={saveDocumentId} className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-foreground mb-2">Número de cédula</p>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Input name="documentId" placeholder="Ej: 1234567890" required className="h-8 text-xs" />
+                </div>
+                <Button type="submit" size="sm">Guardar</Button>
+              </div>
+            </form>
+          )}
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">RUT (link del archivo)</Label>
-            <Input
-              name="rutUrl"
-              defaultValue={creator.rutUrl ?? ""}
-              placeholder="Link de Google Drive con tu RUT"
-            />
-            {creator.rutUrl ? (
-              <p className="text-[10px] text-lime-600">✓ <a href={creator.rutUrl} target="_blank" rel="noopener noreferrer" className="underline">Ver documento</a></p>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Subilo a Drive y pegá el link acá</p>
-            )}
-          </div>
+          {/* RUT */}
+          <PdfUploadForm
+            docType="RUT"
+            label="RUT"
+            currentUrl={creator.rutUrl}
+          />
 
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Certificación bancaria (link del archivo)</Label>
-            <Input
-              name="certBancariaUrl"
-              defaultValue={creator.certBancariaUrl ?? ""}
-              placeholder="Link de Google Drive con tu certificación bancaria"
-            />
-            {creator.certBancariaUrl ? (
-              <p className="text-[10px] text-lime-600">✓ <a href={creator.certBancariaUrl} target="_blank" rel="noopener noreferrer" className="underline">Ver documento</a></p>
-            ) : (
-              <p className="text-[10px] text-muted-foreground">Subilo a Drive y pegá el link acá</p>
-            )}
-          </div>
-
-          <Button type="submit">Guardar documentos</Button>
-        </form>
+          {/* Certificación bancaria */}
+          <PdfUploadForm
+            docType="CERTIFICACION_BANCARIA"
+            label="Certificación bancaria"
+            currentUrl={creator.certBancariaUrl}
+          />
+        </div>
       </div>
 
-      {/* Cuentas de cobro — por campaña */}
+      {/* Cuentas de cobro por campaña */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h2 className="text-sm font-medium text-foreground mb-2">Cuentas de cobro</h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Subí la cuenta de cobro por cada campaña donde ya publicaste el contenido.
-          <a href="/modelo-cuenta-cobro.pdf" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline ml-1">
-            Descargar modelo ↗
-          </a>
+        <p className="text-xs text-muted-foreground mb-1">
+          Subí la cuenta de cobro en PDF por cada campaña donde ya publicaste.
         </p>
+        <a
+          href="/modelo-cuenta-cobro.pdf"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-primary hover:underline inline-block mb-4"
+        >
+          Descargar modelo de cuenta de cobro ↗
+        </a>
 
         {campaignsWithPayment.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {campaignsWithPayment.map((cc) => {
               const cuentaCobro = cc.payment?.documents[0];
               return (
-                <div key={cc.id} className="rounded-lg border border-border p-4">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={cc.id}>
+                  <div className="flex items-center justify-between mb-1.5">
                     <div>
                       <span className="text-sm font-medium">{cc.campaign.name}</span>
                       <span className="text-xs text-muted-foreground ml-2">{cc.campaign.code}</span>
@@ -186,31 +162,12 @@ export default async function DocumentosCreadoraPage() {
                       <Badge className="bg-[#F4D79D]/30 text-amber-700">Pendiente</Badge>
                     )}
                   </div>
-
-                  {cuentaCobro ? (
-                    <a
-                      href={cuentaCobro.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Ver cuenta de cobro ↗
-                    </a>
-                  ) : (
-                    <form action={uploadCuentaCobro} className="flex items-end gap-2 mt-2">
-                      <input type="hidden" name="paymentId" value={cc.payment!.id} />
-                      <div className="flex-1 space-y-1">
-                        <Label className="text-[10px] text-muted-foreground">Link de la cuenta de cobro</Label>
-                        <Input
-                          name="fileUrl"
-                          placeholder="Link de Google Drive..."
-                          required
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                      <Button type="submit" size="sm">Subir</Button>
-                    </form>
-                  )}
+                  <PdfUploadForm
+                    docType="CUENTA_DE_COBRO"
+                    label={`Cuenta de cobro — ${cc.campaign.name}`}
+                    paymentId={cc.payment!.id}
+                    currentUrl={cuentaCobro?.fileUrl}
+                  />
                 </div>
               );
             })}
