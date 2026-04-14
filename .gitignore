@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# credentials (NEVER commit)
+google-credentials.json
+
 # brand assets (heavy files, stored locally)
 /brand/
 

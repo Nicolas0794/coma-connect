@@ -148,6 +148,9 @@ export default async function CampanaDetallePage({
           <Link href={`/campanas/${id}/contenido`}>
             <Button variant="outline" size="sm">Contenido</Button>
           </Link>
+          <Link href={`/campanas/${id}/videos`}>
+            <Button variant="outline" size="sm">Videos</Button>
+          </Link>
           <Link href={`/campanas/${id}/pagos`}>
             <Button variant="outline" size="sm">Pagos</Button>
           </Link>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { notifyClientVideoReady, notifyTeamPublicationConfirmed } from "@/lib/notifications";
+import { VideoUploadForm } from "@/components/video-upload-form";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "Pendiente",
@@ -393,13 +394,7 @@ export default async function CreatorSpacePage() {
                               )}
 
                               {needsVideo && (
-                                <form action={submitVideo} className="flex items-end gap-2 mt-3">
-                                  <input type="hidden" name="pieceId" value={piece.id} />
-                                  <div className="flex-1">
-                                    <Input name="videoUrl" placeholder="Pegá el link del video (Drive, Dropbox...)" required className="text-xs h-8" />
-                                  </div>
-                                  <Button type="submit" size="sm">Enviar video</Button>
-                                </form>
+                                <VideoUploadForm contentPieceId={piece.id} />
                               )}
 
                               {needsPublish && (
