@@ -33,8 +33,9 @@ model User {
   sessions       Session[]
   clientMembers  ClientMember[]
   creatorProfile Creator?
-  contentReviews ContentRevision[] @relation("ContentReviewer")
-  notifications  Notification[]
+  contentReviews   ContentRevision[]  @relation("ContentReviewer")
+  notifications    Notification[]
+  campaignMessages CampaignMessage[]
 }
 
 model Account {
@@ -183,6 +184,7 @@ model Campaign {
 
   client           Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
   campaignCreators CampaignCreator[]
+  messages         CampaignMessage[]
 }
 
 enum CampaignCreatorStatus {
@@ -360,4 +362,21 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, read, sentAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campaign Chat
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CampaignMessage {
+  id         String   @id @default(cuid())
+  campaignId String
+  userId     String
+  body       String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, createdAt])
 }

@@ -307,10 +307,11 @@ export default async function CreatorSpacePage() {
           <div className="space-y-6">
             {myCampaigns.map((cc) => (
               <div key={cc.id} className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="bg-primary/5 border-b border-border px-5 py-4">
-                  <h3 className="font-medium text-foreground">{cc.campaign.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {cc.campaign.client.name}
+                <div className="bg-primary/5 border-b border-border px-5 py-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-foreground">{cc.campaign.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {cc.campaign.client.name}
                     {cc.campaign.startDate && (
                       <span>
                         {" · "}
@@ -319,6 +320,10 @@ export default async function CreatorSpacePage() {
                       </span>
                     )}
                   </p>
+                  </div>
+                  <a href={`/campanas/${cc.campaign.id}/chat`}>
+                    <Button variant="outline" size="sm">Chat</Button>
+                  </a>
                 </div>
 
                 <div className="p-5 space-y-5">

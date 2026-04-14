@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -174,7 +175,17 @@ export default async function PortalCampanaPage({
         >
           ← Orange Space
         </a>
-        <h1 className="text-2xl text-foreground mt-2">{campaign.name}</h1>
+        <div className="flex items-center justify-between mt-2">
+          <h1 className="text-2xl text-foreground">{campaign.name}</h1>
+          <div className="flex gap-2">
+            <Link href={`/portal/${campaignId}/reporte`}>
+              <Button variant="outline" size="sm">Reporte</Button>
+            </Link>
+            <Link href={`/campanas/${campaignId}/chat`}>
+              <Button variant="outline" size="sm">Chat</Button>
+            </Link>
+          </div>
+        </div>
         {campaign.objective && (
           <p className="text-sm text-muted-foreground mt-1">{campaign.objective}</p>
         )}

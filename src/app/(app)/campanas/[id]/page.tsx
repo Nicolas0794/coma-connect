@@ -142,11 +142,20 @@ export default async function CampanaDetallePage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={`/campanas/${id}/chat`}>
+            <Button variant="outline" size="sm">Chat</Button>
+          </Link>
           <Link href={`/campanas/${id}/contenido`}>
             <Button variant="outline" size="sm">Contenido</Button>
           </Link>
           <Link href={`/campanas/${id}/pagos`}>
             <Button variant="outline" size="sm">Pagos</Button>
+          </Link>
+          <Link href={`/campanas/${id}/metricas`}>
+            <Button variant="outline" size="sm">Métricas</Button>
+          </Link>
+          <Link href={`/campanas/${id}/evaluacion`}>
+            <Button variant="outline" size="sm">Evaluación</Button>
           </Link>
           <form action={updateStatus} className="flex items-center gap-2">
             <input type="hidden" name="campaignId" value={id} />
