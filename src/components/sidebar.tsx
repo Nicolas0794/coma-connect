@@ -25,6 +25,7 @@ const clientLinks = [
 
 const creatorLinks = [
   { href: "/mi-espacio", label: "Mi espacio", icon: "🎬" },
+  { href: "/mi-espacio/documentos", label: "Mis documentos", icon: "📄" },
   { href: "/notificaciones", label: "Notificaciones", icon: "🔔" },
 ];
 

@@ -127,6 +127,10 @@ model Creator {
   bio              String?
   profileImageUrl  String?
   niches           String[] @default([])
+  documentId       String?
+  rutUrl           String?
+  certBancariaUrl  String?
+  docsCompleted    Boolean  @default(false)
   internalRating   Int?
   notes            String?
   createdAt        DateTime @default(now())
