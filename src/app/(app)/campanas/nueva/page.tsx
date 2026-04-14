@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getNextCampaignCode } from "@/lib/campaign-code";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,14 +10,12 @@ async function createCampaign(formData: FormData) {
   "use server";
   const name = (formData.get("name") as string)?.trim();
   const clientId = formData.get("clientId") as string;
-  const code = (formData.get("code") as string)?.trim().toUpperCase();
 
-  if (!name || !clientId || !code) {
+  if (!name || !clientId) {
     redirect("/campanas/nueva?error=required");
   }
 
-  const existing = await prisma.campaign.findUnique({ where: { code } });
-  if (existing) redirect("/campanas/nueva?error=code");
+  const code = await getNextCampaignCode();
 
   const campaign = await prisma.campaign.create({
     data: {
@@ -88,17 +87,11 @@ export default async function NuevaCampanaPage({
 
             <div>
               <h3 className="text-sm text-muted-foreground mb-3">Información básica</h3>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Nombre *</Label>
-                  <Input name="name" placeholder="Ej: Campaña Verano 2026" required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Código único *</Label>
-                  <Input name="code" placeholder="Ej: COMF-V26" required className="uppercase" />
-                </div>
+              <div className="space-y-1.5 mb-4">
+                <Label className="text-xs text-muted-foreground">Nombre *</Label>
+                <Input name="name" placeholder="Ej: Campaña Verano 2026" required />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 mt-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Cliente *</Label>
                   <select

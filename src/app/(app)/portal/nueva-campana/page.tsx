@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { generateBrief } from "@/lib/generate-brief";
+import { getNextCampaignCode } from "@/lib/campaign-code";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +28,7 @@ async function createCampaign(formData: FormData) {
     redirect("/portal/nueva-campana?error=required");
   }
 
-  const code = `CBL-${Date.now().toString(36).toUpperCase().slice(-4)}`;
+  const code = await getNextCampaignCode();
 
   const briefInput = {
     name,
