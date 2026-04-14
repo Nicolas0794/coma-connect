@@ -141,25 +141,13 @@ export default async function CampanaDetallePage({
             {campaign.code}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link href={`/campanas/${id}/chat`}>
-            <Button variant="outline" size="sm">Chat</Button>
-          </Link>
-          <Link href={`/campanas/${id}/contenido`}>
-            <Button variant="outline" size="sm">Contenido</Button>
-          </Link>
-          <Link href={`/campanas/${id}/videos`}>
-            <Button variant="outline" size="sm">Videos</Button>
-          </Link>
-          <Link href={`/campanas/${id}/pagos`}>
-            <Button variant="outline" size="sm">Pagos</Button>
-          </Link>
-          <Link href={`/campanas/${id}/metricas`}>
-            <Button variant="outline" size="sm">Métricas</Button>
-          </Link>
-          <Link href={`/campanas/${id}/evaluacion`}>
-            <Button variant="outline" size="sm">Evaluación</Button>
-          </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <a href={`/campanas/${id}/chat`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Chat</a>
+          <a href={`/campanas/${id}/contenido`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Contenido</a>
+          <a href={`/campanas/${id}/videos`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Videos</a>
+          <a href={`/campanas/${id}/pagos`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Pagos</a>
+          <a href={`/campanas/${id}/metricas`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Métricas</a>
+          <a href={`/campanas/${id}/evaluacion`} className="inline-flex h-8 items-center px-3 text-[0.8rem] font-medium rounded-lg border border-border bg-transparent text-foreground hover:bg-secondary transition-colors">Evaluación</a>
           <form action={updateStatus} className="flex items-center gap-2">
             <input type="hidden" name="campaignId" value={id} />
             <select
