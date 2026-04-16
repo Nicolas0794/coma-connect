@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VerifyButton } from "@/components/verify-button";
 
 const statusLabels: Record<string, string> = {
   DRAFT: "Borrador",
@@ -94,7 +95,7 @@ export default async function CampanaDetallePage({
       campaignCreators: {
         include: {
           creator: {
-            select: { id: true, fullName: true, city: true, niches: true },
+            select: { id: true, fullName: true, city: true, niches: true, socialProfiles: true },
           },
           _count: { select: { contentPieces: true } },
         },
@@ -236,6 +237,35 @@ export default async function CampanaDetallePage({
                       {cc.fee ? ` · $${Number(cc.fee).toLocaleString("es-CO")}` : ""}
                       {` · ${cc._count.contentPieces} pieza${cc._count.contentPieces !== 1 ? "s" : ""}`}
                     </p>
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      {cc.creator.socialProfiles.map((sp) => {
+                        const profileUrl = sp.platform === "INSTAGRAM"
+                          ? `https://instagram.com/${sp.handle}`
+                          : `https://tiktok.com/@${sp.handle}`;
+                        const isVerified = sp.verifiedAt !== null;
+                        const hasMismatch = sp.selfReportedFollowers && sp.verifiedFollowers && Math.abs(sp.selfReportedFollowers - sp.verifiedFollowers) / sp.verifiedFollowers > 0.15;
+                        return (
+                          <span key={sp.id} className="text-[11px] inline-flex items-center gap-1">
+                            <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                              {sp.platform === "INSTAGRAM" ? "IG" : "TK"} @{sp.handle}
+                            </a>
+                            {isVerified ? (
+                              <>
+                                <span className="inline-block size-3 rounded-full bg-[#D6E889] text-[8px] text-center leading-3 font-bold text-[#2A3B0F]">✓</span>
+                                <span className="font-medium">{sp.verifiedFollowers?.toLocaleString("es-CO")}</span>
+                                {hasMismatch && <span className="text-[#FF4B2C]">(reportó {sp.selfReportedFollowers?.toLocaleString("es-CO")})</span>}
+                                {sp.verifiedEngagement != null && <span className="text-muted-foreground">{sp.verifiedEngagement}%</span>}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {sp.selfReportedFollowers ? `${sp.selfReportedFollowers.toLocaleString("es-CO")} (sin verificar)` : ""}
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                      {cc.creator.socialProfiles.length > 0 && <VerifyButton creatorId={cc.creator.id} />}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

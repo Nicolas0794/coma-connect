@@ -142,16 +142,20 @@ model Creator {
 }
 
 model CreatorSocialProfile {
-  id             String         @id @default(cuid())
-  creatorId      String
-  platform       SocialPlatform
-  handle         String
-  url            String?
-  followers      Int?
-  avgEngagement  Float?
-  lastSyncedAt   DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                    String         @id @default(cuid())
+  creatorId             String
+  platform              SocialPlatform
+  handle                String
+  url                   String?
+  followers             Int?
+  avgEngagement         Float?
+  selfReportedFollowers Int?
+  verifiedFollowers     Int?
+  verifiedEngagement    Float?
+  verifiedAt            DateTime?
+  lastSyncedAt          DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 

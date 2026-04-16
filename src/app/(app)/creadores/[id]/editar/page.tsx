@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { verifyCreatorProfiles } from "@/lib/social-verify";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SocialHandleInput } from "@/components/social-handle-input";
 
 async function updateCreator(formData: FormData) {
   "use server";
@@ -37,25 +39,30 @@ async function updateCreator(formData: FormData) {
 
   const profiles = [];
   if (igHandle) {
+    const selfReported = parseInt(formData.get("igFollowers") as string) || null;
     profiles.push({
       creatorId: id,
       platform: "INSTAGRAM" as const,
       handle: igHandle.replace("@", ""),
       url: `https://instagram.com/${igHandle.replace("@", "")}`,
-      followers: parseInt(formData.get("igFollowers") as string) || null,
+      followers: selfReported,
+      selfReportedFollowers: selfReported,
     });
   }
   if (tkHandle) {
+    const selfReported = parseInt(formData.get("tkFollowers") as string) || null;
     profiles.push({
       creatorId: id,
       platform: "TIKTOK" as const,
       handle: tkHandle.replace("@", ""),
       url: `https://tiktok.com/@${tkHandle.replace("@", "")}`,
-      followers: parseInt(formData.get("tkFollowers") as string) || null,
+      followers: selfReported,
+      selfReportedFollowers: selfReported,
     });
   }
   if (profiles.length > 0) {
     await prisma.creatorSocialProfile.createMany({ data: profiles });
+    verifyCreatorProfiles(id).catch(() => {});
   }
 
   redirect(`/creadores/${id}`);
@@ -148,26 +155,20 @@ export default async function EditarCreadorPage({
           <div>
             <h3 className="text-sm text-muted-foreground mb-3">Redes sociales</h3>
             <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Instagram @</Label>
-                  <Input name="igHandle" defaultValue={ig?.handle ?? ""} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Seguidores IG</Label>
-                  <Input name="igFollowers" type="number" defaultValue={ig?.followers ?? ""} />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">TikTok @</Label>
-                  <Input name="tkHandle" defaultValue={tk?.handle ?? ""} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Seguidores TK</Label>
-                  <Input name="tkFollowers" type="number" defaultValue={tk?.followers ?? ""} />
-                </div>
-              </div>
+              <SocialHandleInput
+                platform="INSTAGRAM"
+                handleName="igHandle"
+                followersName="igFollowers"
+                defaultHandle={ig?.handle}
+                defaultFollowers={ig?.verifiedFollowers ?? ig?.followers ?? undefined}
+              />
+              <SocialHandleInput
+                platform="TIKTOK"
+                handleName="tkHandle"
+                followersName="tkFollowers"
+                defaultHandle={tk?.handle}
+                defaultFollowers={tk?.verifiedFollowers ?? tk?.followers ?? undefined}
+              />
             </div>
           </div>
 

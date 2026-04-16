@@ -4,6 +4,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VerifyButton } from "@/components/verify-button";
 import { notifyCreatorSelected, notifyCreatorVideoApproved, notifyCreatorChangesRequested } from "@/lib/notifications";
 
 const contentStatusLabels: Record<string, string> = {
@@ -225,14 +226,42 @@ export default async function PortalCampanaPage({
                           ))}
                         </div>
                       )}
-                      <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
-                        {cc.creator.socialProfiles.map((sp) => (
-                          <span key={sp.id}>
-                            {sp.platform === "INSTAGRAM" ? "IG" : "TK"}{" "}
-                            <span className="font-medium text-foreground">@{sp.handle}</span>
-                            {sp.followers && ` · ${sp.followers.toLocaleString("es-CO")}`}
-                          </span>
-                        ))}
+                      <div className="mt-2 space-y-1">
+                        {cc.creator.socialProfiles.map((sp) => {
+                          const isVerified = sp.verifiedAt !== null;
+                          const selfReported = sp.selfReportedFollowers;
+                          const verified = sp.verifiedFollowers;
+                          const hasMismatch = selfReported && verified && Math.abs(selfReported - verified) / verified > 0.15;
+                          const profileUrl = sp.platform === "INSTAGRAM"
+                            ? `https://instagram.com/${sp.handle}`
+                            : `https://tiktok.com/@${sp.handle}`;
+                          return (
+                            <div key={sp.id} className="flex items-center gap-2 text-xs">
+                              <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
+                                {sp.platform === "INSTAGRAM" ? "IG" : "TK"} @{sp.handle}
+                              </a>
+                              {isVerified ? (
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="inline-block size-3.5 rounded-full bg-[#D6E889] text-[9px] text-center leading-[14px] font-bold text-[#2A3B0F]">✓</span>
+                                  <span className="text-foreground font-medium">{verified?.toLocaleString("es-CO")}</span>
+                                  {hasMismatch && (
+                                    <span className="text-[#FF4B2C]" title={`Reportó ${selfReported?.toLocaleString("es-CO")}`}>
+                                      (reportó {selfReported?.toLocaleString("es-CO")})
+                                    </span>
+                                  )}
+                                  {sp.verifiedEngagement != null && (
+                                    <span className="text-muted-foreground">· {sp.verifiedEngagement}% eng</span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                                  {selfReported ? `${selfReported.toLocaleString("es-CO")} (sin verificar)` : "sin datos"}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <VerifyButton creatorId={cc.creator.id} />
                       </div>
                       {cc.creator.bio && (
                         <p className="text-xs text-muted-foreground mt-2 max-w-md">
