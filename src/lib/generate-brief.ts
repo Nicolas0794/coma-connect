@@ -77,7 +77,16 @@ interface CampaignInput {
   additionalNotes: string;
 }
 
-export async function generateBrief(input: CampaignInput): Promise<string> {
+export interface BriefAttachment {
+  fileName: string;
+  mimeType: string;
+  data: Buffer;
+}
+
+export async function generateBrief(
+  input: CampaignInput,
+  attachments: BriefAttachment[] = [],
+): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
@@ -86,7 +95,14 @@ export async function generateBrief(input: CampaignInput): Promise<string> {
 
   const client = new Anthropic({ apiKey });
 
-  const userMessage = `Generá el brief para creadoras basándote en esta información del cliente:
+  const attachmentSummary =
+    attachments.length > 0
+      ? `\n\n**Archivos adjuntos del cliente:**\n${attachments
+          .map((a) => `- ${a.fileName} (${a.mimeType})`)
+          .join("\n")}\n\nRevisá los documentos adjuntos arriba y usalos como contexto adicional para el brief.`
+      : "";
+
+  const userText = `Generá el brief para creadoras basándote en esta información del cliente:
 
 **Nombre de la campaña:** ${input.name}
 **Descripción:** ${input.description}
@@ -100,19 +116,50 @@ export async function generateBrief(input: CampaignInput): Promise<string> {
 **Fecha de inicio producción:** ${input.startDate}
 **Fecha máxima de entrega:** ${input.deliveryDate}
 **Fecha máxima de publicación:** ${input.endDate}
-**Notas adicionales:** ${input.additionalNotes}
+**Notas adicionales:** ${input.additionalNotes}${attachmentSummary}
 
 Generá el brief completo siguiendo la estructura exacta.`;
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4000,
-    system: BRIEF_SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
+  // Construir content blocks: adjuntos soportados primero, luego el prompt.
+  const contentBlocks: Anthropic.ContentBlockParam[] = [];
+  for (const att of attachments) {
+    if (att.mimeType === "application/pdf") {
+      contentBlocks.push({
+        type: "document",
+        source: {
+          type: "base64",
+          media_type: "application/pdf",
+          data: att.data.toString("base64"),
+        },
+      });
+    } else if (att.mimeType.startsWith("image/")) {
+      const media = att.mimeType as "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+      contentBlocks.push({
+        type: "image",
+        source: {
+          type: "base64",
+          media_type: media,
+          data: att.data.toString("base64"),
+        },
+      });
+    }
+    // Otros tipos quedan solo listados en texto (no se envían al modelo).
+  }
+  contentBlocks.push({ type: "text", text: userText });
 
-  const textBlock = response.content.find((b) => b.type === "text");
-  return textBlock?.text ?? generateFallbackBrief(input);
+  try {
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4000,
+      system: BRIEF_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: contentBlocks }],
+    });
+    const textBlock = response.content.find((b) => b.type === "text");
+    return textBlock?.text ?? generateFallbackBrief(input);
+  } catch (err) {
+    console.error("[generateBrief] AI call failed:", err);
+    return generateFallbackBrief(input);
+  }
 }
 
 function generateFallbackBrief(input: CampaignInput): string {

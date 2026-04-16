@@ -1,12 +1,21 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { generateBrief } from "@/lib/generate-brief";
+import { generateBrief, type BriefAttachment } from "@/lib/generate-brief";
 import { getNextCampaignCode } from "@/lib/campaign-code";
+import { notifyCreatorsNewCampaignMatch } from "@/lib/notify";
+import { suggestCreatorsForCampaign } from "@/lib/suggest-creators";
+import { uploadCampaignAttachmentToDrive } from "@/lib/google-drive-campaign";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NicheMultiSelect } from "@/components/niche-multi-select";
+import { CampaignAttachmentsInput } from "@/components/campaign-attachments-input";
 import Link from "next/link";
+import type { SocialPlatform } from "@/generated/prisma/enums";
+
+const MAX_ATTACHMENT_MB = 25;
+const MAX_ATTACHMENTS = 8;
 
 async function createCampaign(formData: FormData) {
   "use server";
@@ -30,6 +39,21 @@ async function createCampaign(formData: FormData) {
 
   const code = await getNextCampaignCode();
 
+  // Recoger adjuntos del form (hasta MAX_ATTACHMENTS, cada uno ≤ MAX_ATTACHMENT_MB).
+  const rawFiles = formData.getAll("attachments").filter((v): v is File => v instanceof File && v.size > 0);
+  const attachmentFiles = rawFiles
+    .filter((f) => f.size <= MAX_ATTACHMENT_MB * 1024 * 1024)
+    .slice(0, MAX_ATTACHMENTS);
+
+  // Leer buffers y armar contexto para el brief (PDFs e imágenes van al modelo).
+  const briefAttachments: BriefAttachment[] = await Promise.all(
+    attachmentFiles.map(async (f) => ({
+      fileName: f.name,
+      mimeType: f.type || "application/octet-stream",
+      data: Buffer.from(await f.arrayBuffer()),
+    })),
+  );
+
   const briefInput = {
     name,
     description,
@@ -46,7 +70,25 @@ async function createCampaign(formData: FormData) {
     additionalNotes: (formData.get("additionalNotes") as string)?.trim() || "",
   };
 
-  const briefOptimized = await generateBrief(briefInput);
+  const briefOptimized = await generateBrief(briefInput, briefAttachments);
+
+  const requiredNiches = ((formData.get("requiredNiches") as string) || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const requiredCity = (formData.get("requiredCity") as string)?.trim() || null;
+  const minFollowersRaw = (formData.get("minFollowers") as string)?.trim();
+  const minFollowers = minFollowersRaw
+    ? parseInt(minFollowersRaw.replace(/\D/g, ""), 10) || null
+    : null;
+  const platformValue = (formData.get("platform") as string) || "Instagram y TikTok";
+  const requiredPlatform: SocialPlatform | null =
+    platformValue === "Instagram"
+      ? "INSTAGRAM"
+      : platformValue === "TikTok"
+      ? "TIKTOK"
+      : null;
+  const requiredAudienceDesc = briefInput.targetAudience || null;
 
   const campaign = await prisma.campaign.create({
     data: {
@@ -61,8 +103,60 @@ async function createCampaign(formData: FormData) {
         : null,
       startDate: briefInput.startDate ? new Date(briefInput.startDate) : null,
       endDate: briefInput.endDate ? new Date(briefInput.endDate) : null,
+      requiredNiches,
+      requiredCity,
+      minFollowers,
+      requiredPlatform,
+      requiredAudienceDesc,
     },
   });
+
+  // Subir adjuntos a Drive y registrar en DB (best-effort).
+  for (let i = 0; i < attachmentFiles.length; i++) {
+    const f = attachmentFiles[i];
+    const buffer = briefAttachments[i]?.data ?? Buffer.from(await f.arrayBuffer());
+    try {
+      const { viewUrl } = await uploadCampaignAttachmentToDrive(
+        buffer,
+        f.name,
+        f.type || "application/octet-stream",
+        campaign.name,
+        campaign.code,
+      );
+      await prisma.campaignAttachment.create({
+        data: {
+          campaignId: campaign.id,
+          fileUrl: viewUrl,
+          fileName: f.name,
+          mimeType: f.type || null,
+          sizeBytes: f.size,
+        },
+      });
+    } catch (err) {
+      console.error(`[createCampaign] upload attachment "${f.name}" failed:`, err);
+    }
+  }
+
+  // Sugerir creadores (comunidad + pool general), persistir y notificar a los matched.
+  // Best-effort: si algo falla, igual redirigimos — el cliente puede re-correr luego.
+  try {
+    const suggestions = await suggestCreatorsForCampaign(campaign.id);
+    if (suggestions.length > 0) {
+      await prisma.campaignSuggestion.createMany({
+        data: suggestions.map((s) => ({
+          campaignId: campaign.id,
+          creatorId: s.creatorId,
+          fromCommunity: s.fromCommunity,
+          score: s.score,
+          reason: s.reason,
+        })),
+        skipDuplicates: true,
+      });
+      await notifyCreatorsNewCampaignMatch(campaign.id, suggestions);
+    }
+  } catch (err) {
+    console.error("[createCampaign] suggestion/notify failed:", err);
+  }
 
   redirect(`/portal/${campaign.id}`);
 }
@@ -93,7 +187,7 @@ export default async function NuevaCampanaClientePage({
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6">
-        <form action={createCampaign} className="space-y-6">
+        <form action={createCampaign} encType="multipart/form-data" className="space-y-6">
           {params.error === "required" && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
               El nombre y la descripción son obligatorios.
@@ -149,6 +243,47 @@ export default async function NuevaCampanaClientePage({
                     <option value="Instagram">Solo Instagram</option>
                     <option value="TikTok">Solo TikTok</option>
                   </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Perfil de creador buscado */}
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-1">
+              Perfil de creador que buscás
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Esto nos ayuda a sugerirte creadoras de tu comunidad y del catálogo
+              que encajan con tu campaña.
+            </p>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">
+                  Nichos
+                </Label>
+                <NicheMultiSelect name="requiredNiches" />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Ciudad preferida
+                  </Label>
+                  <Input
+                    name="requiredCity"
+                    placeholder="Ej: Bogotá, Medellín, Cali"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">
+                    Followers mínimos (opcional)
+                  </Label>
+                  <Input
+                    name="minFollowers"
+                    type="number"
+                    min="0"
+                    placeholder="Ej: 5000"
+                  />
                 </div>
               </div>
             </div>
@@ -249,6 +384,19 @@ export default async function NuevaCampanaClientePage({
               placeholder="Cualquier detalle extra que quieras incluir..."
               className="h-16 w-full rounded-lg border border-input/60 bg-secondary px-3 py-2 text-sm text-foreground outline-none transition-all duration-150 placeholder:text-muted-foreground/60 hover:border-input focus:border-accent focus:ring-2 focus:ring-accent/15 resize-none"
             />
+          </div>
+
+          {/* Adjuntos */}
+          <div>
+            <h3 className="text-sm font-medium text-foreground mb-1">
+              Material de referencia
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Subí brand guidelines, decks, mood boards, fichas de producto, referencias —
+              cualquier archivo que ayude a entender mejor la campaña. La IA los usa para
+              armar el brief.
+            </p>
+            <CampaignAttachmentsInput />
           </div>
 
           <div className="flex gap-3 pt-2">

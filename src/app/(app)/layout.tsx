@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
+import { prisma } from "@/lib/prisma";
 
 export default async function AppLayout({
   children,
@@ -15,6 +16,9 @@ export default async function AppLayout({
   }
 
   const role = session.user.role;
+  const unreadCount = await prisma.notification.count({
+    where: { userId: session.user.id, read: false, channel: "IN_APP" },
+  });
 
   return (
     <div className="flex min-h-screen">
@@ -22,9 +26,9 @@ export default async function AppLayout({
         role={role}
         userName={session.user.name ?? ""}
         userEmail={session.user.email ?? ""}
-        userId={session.user.id}
+        unreadCount={unreadCount}
       />
-      <div className="flex-1 ml-[220px] flex flex-col">
+      <div className="flex-1 ml-[240px] flex flex-col">
         {/* Top bar */}
         <header className="sticky top-0 z-30 h-12 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-end px-6">
           <form

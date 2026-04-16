@@ -18,6 +18,55 @@ const contentStatusLabels: Record<string, string> = {
   ARCHIVED: "Archivado",
 };
 
+async function inviteSuggestedCreator(formData: FormData) {
+  "use server";
+  const creatorId = formData.get("creatorId") as string;
+  const campaignId = formData.get("campaignId") as string;
+
+  const session = await auth();
+  if (session?.user?.role !== "CLIENT") return;
+
+  const membership = await prisma.clientMember.findFirst({
+    where: { userId: session.user.id },
+    select: { clientId: true },
+  });
+  if (!membership) return;
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId, clientId: membership.clientId },
+    select: { name: true, client: { select: { name: true } } },
+  });
+  if (!campaign) return;
+
+  const creator = await prisma.creator.findUnique({
+    where: { id: creatorId },
+    select: { email: true, fullName: true },
+  });
+  if (!creator) return;
+
+  await prisma.campaignCreator.upsert({
+    where: { campaignId_creatorId: { campaignId, creatorId } },
+    create: {
+      campaignId,
+      creatorId,
+      status: "ACCEPTED",
+      acceptedAt: new Date(),
+    },
+    update: { status: "ACCEPTED", acceptedAt: new Date() },
+  });
+
+  await prisma.clientCreator.upsert({
+    where: { clientId_creatorId: { clientId: membership.clientId, creatorId } },
+    create: { clientId: membership.clientId, creatorId },
+    update: { lastCollaborationAt: new Date(), campaignsCount: { increment: 1 } },
+  });
+
+  if (creator.email) {
+    await notifyCreatorSelected(creator.email, creator.fullName, campaign.name, campaign.client.name);
+  }
+  redirect(`/portal/${campaignId}`);
+}
+
 async function approveCreator(formData: FormData) {
   "use server";
   const ccId = formData.get("ccId") as string;
@@ -26,10 +75,29 @@ async function approveCreator(formData: FormData) {
     where: { id: ccId },
     data: { status: "ACCEPTED", acceptedAt: new Date() },
     include: {
-      creator: { select: { email: true, fullName: true, phone: true } },
-      campaign: { select: { name: true, client: { select: { name: true } } } },
+      creator: { select: { id: true, email: true, fullName: true, phone: true } },
+      campaign: { select: { clientId: true, name: true, client: { select: { name: true } } } },
     },
   });
+
+  // Agregar/actualizar a la comunidad del cliente.
+  await prisma.clientCreator.upsert({
+    where: {
+      clientId_creatorId: {
+        clientId: cc.campaign.clientId,
+        creatorId: cc.creator.id,
+      },
+    },
+    create: {
+      clientId: cc.campaign.clientId,
+      creatorId: cc.creator.id,
+    },
+    update: {
+      lastCollaborationAt: new Date(),
+      campaignsCount: { increment: 1 },
+    },
+  });
+
   if (cc.creator.email) {
     await notifyCreatorSelected(cc.creator.email, cc.creator.fullName, cc.campaign.name, cc.campaign.client.name);
   }
@@ -146,10 +214,38 @@ export default async function PortalCampanaPage({
         },
         orderBy: { invitedAt: "desc" },
       },
+      attachments: { orderBy: { uploadedAt: "asc" } },
+      suggestions: {
+        orderBy: { score: "desc" },
+        include: {
+          creator: {
+            select: {
+              id: true,
+              fullName: true,
+              city: true,
+              niches: true,
+              profileImageUrl: true,
+              socialProfiles: {
+                select: {
+                  platform: true,
+                  handle: true,
+                  verifiedFollowers: true,
+                  followers: true,
+                },
+              },
+            },
+          },
+        },
+      },
     },
   });
 
   if (!campaign) notFound();
+
+  const alreadyInCampaign = new Set(campaign.campaignCreators.map((cc) => cc.creatorId));
+  const pendingSuggestions = campaign.suggestions.filter(
+    (s) => !alreadyInCampaign.has(s.creatorId),
+  );
 
   const pendingApproval = campaign.campaignCreators.filter(
     (cc) => cc.status === "INVITED"
@@ -191,6 +287,102 @@ export default async function PortalCampanaPage({
           <p className="text-sm text-muted-foreground mt-1">{campaign.objective}</p>
         )}
       </div>
+
+      {/* Adjuntos del cliente */}
+      {campaign.attachments.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg text-foreground mb-3">
+            Material de referencia ({campaign.attachments.length})
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {campaign.attachments.map((att) => (
+              <a
+                key={att.id}
+                href={att.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs hover:border-primary hover:text-primary transition-colors"
+              >
+                <span>📎</span>
+                <span className="truncate max-w-[240px]">{att.fileName}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sugerencias de creadoras (IA) */}
+      {pendingSuggestions.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg text-foreground mb-1">
+            Sugerencias de creadoras para esta campaña
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            La IA sugiere estas creadoras según el perfil que buscás. Las de tu
+            comunidad ya trabajaron con vos antes.
+          </p>
+          <div className="space-y-3">
+            {pendingSuggestions.map((sug) => {
+              const c = sug.creator;
+              const ig = c.socialProfiles.find((sp) => sp.platform === "INSTAGRAM");
+              const tk = c.socialProfiles.find((sp) => sp.platform === "TIKTOK");
+              const igFollowers = ig?.verifiedFollowers ?? ig?.followers;
+              const tkFollowers = tk?.verifiedFollowers ?? tk?.followers;
+              return (
+                <div
+                  key={sug.id}
+                  className="rounded-xl border border-border bg-card p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="size-11 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+                        {c.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium text-foreground">{c.fullName}</h3>
+                          {sug.fromCommunity && (
+                            <Badge className="text-[10px] bg-[#FF4B2C]/15 text-[#FF4B2C] border-0">
+                              De tu comunidad
+                            </Badge>
+                          )}
+                          <Badge variant="outline" className="text-[10px]">
+                            Match {sug.score}
+                          </Badge>
+                        </div>
+                        {c.city && (
+                          <p className="text-xs text-muted-foreground">{c.city}</p>
+                        )}
+                        {c.niches.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {c.niches.map((n) => (
+                              <Badge key={n} variant="secondary" className="text-[10px]">{n}</Badge>
+                            ))}
+                          </div>
+                        )}
+                        <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
+                          {ig && (
+                            <span>IG @{ig.handle}{igFollowers ? ` · ${igFollowers.toLocaleString("es-CO")}` : ""}</span>
+                          )}
+                          {tk && (
+                            <span>TK @{tk.handle}{tkFollowers ? ` · ${tkFollowers.toLocaleString("es-CO")}` : ""}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-foreground mt-2 italic">“{sug.reason}”</p>
+                      </div>
+                    </div>
+                    <form action={inviteSuggestedCreator} className="shrink-0">
+                      <input type="hidden" name="creatorId" value={c.id} />
+                      <input type="hidden" name="campaignId" value={campaignId} />
+                      <Button type="submit" size="sm">Invitar</Button>
+                    </form>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Creadores pendientes de aprobación */}
       {pendingApproval.length > 0 && (

@@ -90,8 +90,27 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members   ClientMember[]
-  campaigns Campaign[]
+  members         ClientMember[]
+  campaigns       Campaign[]
+  clientCreators  ClientCreator[]
+}
+
+// Comunidad de creadores que un cliente ya aceptó en campañas previas.
+// Se populan automáticamente cuando CampaignCreator pasa a ACCEPTED.
+model ClientCreator {
+  id                 String   @id @default(cuid())
+  clientId           String
+  creatorId          String
+  firstAcceptedAt    DateTime @default(now())
+  lastCollaborationAt DateTime @default(now())
+  campaignsCount     Int      @default(1)
+  notes              String?
+
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, creatorId])
+  @@index([clientId, lastCollaborationAt])
 }
 
 model ClientMember {
@@ -139,6 +158,8 @@ model Creator {
   user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
   socialProfiles   CreatorSocialProfile[]
   campaignCreators CampaignCreator[]
+  clientCreators   ClientCreator[]
+  suggestions      CampaignSuggestion[]
 }
 
 model CreatorSocialProfile {
@@ -187,12 +208,54 @@ model Campaign {
   endDate         DateTime?
   briefOriginal   String?
   briefOptimized  String?
+
+  // Perfil de creador buscado — usado por la IA para sugerencias
+  requiredNiches       String[]         @default([])
+  requiredCity         String?
+  minFollowers         Int?
+  requiredPlatform     SocialPlatform?
+  requiredAudienceDesc String?
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
-  client           Client            @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  client           Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
   campaignCreators CampaignCreator[]
   messages         CampaignMessage[]
+  attachments      CampaignAttachment[]
+  suggestions      CampaignSuggestion[]
+}
+
+model CampaignAttachment {
+  id         String   @id @default(cuid())
+  campaignId String
+  fileUrl    String
+  fileName   String
+  mimeType   String?
+  sizeBytes  Int?
+  uploadedAt DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, uploadedAt])
+}
+
+// Sugerencias de creadoras generadas por la IA al crear la campaña,
+// persistidas para mostrarlas al cliente sin re-consultar al modelo.
+model CampaignSuggestion {
+  id            String   @id @default(cuid())
+  campaignId    String
+  creatorId     String
+  fromCommunity Boolean  @default(false)
+  score         Int      @default(0)
+  reason        String
+  createdAt     DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  creator  Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, creatorId])
+  @@index([campaignId, score])
 }
 
 enum CampaignCreatorStatus {

@@ -142,6 +142,31 @@ export async function notifyClientVideoReady(
   );
 }
 
+export async function notifyCreatorNewCampaignMatch(
+  creatorEmail: string,
+  creatorName: string,
+  clientName: string,
+  campaignName: string,
+  campaignId: string,
+  fromCommunity: boolean,
+) {
+  const firstName = creatorName.split(" ")[0];
+  const intro = fromCommunity
+    ? `${clientName} —con quien ya trabajaste antes— lanzó una nueva campaña`
+    : `${clientName} lanzó una nueva campaña y tu perfil encaja`;
+  await sendEmail(
+    creatorEmail,
+    `✨ Nueva campaña de ${clientName} — "${campaignName}"`,
+    wrap(
+      `${firstName}, hay una campaña nueva que podría encajar con vos`,
+      `<p>${intro}: <strong>"${campaignName}"</strong>.</p>
+       <p>Mirala en CoMa Connect y postulate si te interesa.</p>`,
+      "Ver campaña",
+      `${BASE_URL}/mi-espacio?campaign=${campaignId}`,
+    ),
+  );
+}
+
 export async function notifyClientCreatorsProposed(
   clientEmail: string,
   clientName: string,

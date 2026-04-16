@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import * as emailNotifications from "@/lib/notifications";
+import type { CreatorSuggestion } from "@/lib/suggest-creators";
 
 interface NotifyOptions {
   userId: string;
@@ -166,6 +167,61 @@ export async function notifyCreatorChangesAll(
   }
   if (creatorEmail) {
     await emailNotifications.notifyCreatorChangesRequested(creatorEmail, creatorName, campaignName, pieceTitle, feedback);
+  }
+}
+
+export async function notifyCreatorsNewCampaignMatch(
+  campaignId: string,
+  suggestions: CreatorSuggestion[],
+) {
+  if (suggestions.length === 0) return;
+
+  const campaign = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { name: true, client: { select: { name: true } } },
+  });
+  if (!campaign) return;
+
+  const creators = await prisma.creator.findMany({
+    where: { id: { in: suggestions.map((s) => s.creatorId) } },
+    select: { id: true, userId: true, email: true, phone: true, fullName: true },
+  });
+  const byId = new Map(creators.map((c) => [c.id, c]));
+
+  for (const sug of suggestions) {
+    const creator = byId.get(sug.creatorId);
+    if (!creator) continue;
+
+    const firstName = creator.fullName.split(" ")[0];
+    const intro = sug.fromCommunity
+      ? `${campaign.client.name} lanzó una nueva campaña`
+      : `${campaign.client.name} lanzó una nueva campaña y tu perfil encaja`;
+
+    if (creator.userId) {
+      await notify({
+        userId: creator.userId,
+        title: `Nueva campaña de ${campaign.client.name}`,
+        body: `${intro}: "${campaign.name}". ${sug.reason}`,
+        link: "/mi-espacio",
+        whatsapp: creator.phone
+          ? {
+              phone: creator.phone,
+              message: `✨ Hola ${firstName}, ${campaign.client.name} tiene una nueva campaña "${campaign.name}" que podría encajar con vos. Mirala en CoMa Connect 🎬`,
+            }
+          : undefined,
+      });
+    }
+
+    if (creator.email) {
+      await emailNotifications.notifyCreatorNewCampaignMatch(
+        creator.email,
+        creator.fullName,
+        campaign.client.name,
+        campaign.name,
+        campaignId,
+        sug.fromCommunity,
+      );
+    }
   }
 }
 
