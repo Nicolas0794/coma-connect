@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "220mb",
     },
   },
+  async rewrites() {
+    return [
+      // URL LinkedIn-style: /@maria-perez → /c/maria-perez
+      { source: "/@:slug", destination: "/c/:slug" },
+    ];
+  },
 };
 
 export default nextConfig;

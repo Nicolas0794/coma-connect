@@ -4,14 +4,29 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const publicRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
+// Rutas que no requieren autenticación (login, registro, layer pública Connect)
+const publicPrefixes = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/talento",
+  "/c/",
+  "/@",
+  "/sitemap.xml",
+  "/robots.txt",
+];
+
+function isPublicPath(pathname: string): boolean {
+  if (pathname === "/c" || pathname === "/talento") return true;
+  return publicPrefixes.some((prefix) => pathname.startsWith(prefix));
+}
 
 export default auth((req) => {
   const isAuthed = !!req.auth;
   const { pathname } = req.nextUrl;
-  const isPublic = publicRoutes.some((route) => pathname.startsWith(route));
 
-  if (!isAuthed && !isPublic) {
+  if (!isAuthed && !isPublicPath(pathname)) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
