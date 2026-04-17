@@ -3,12 +3,53 @@ import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+function cop(n: number): string {
+  return `$${n.toLocaleString("es-CO", { maximumFractionDigits: 0 })}`;
+}
+
+const activeStatuses = ["ACTIVE", "IN_REVIEW", "PUBLISHING"] as const;
+
 export default async function ClientesPage() {
   const clients = await prisma.client.findMany({
     orderBy: { createdAt: "desc" },
     include: {
+      campaigns: {
+        select: {
+          status: true,
+          budget: true,
+          updatedAt: true,
+          campaignCreators: {
+            select: { status: true },
+          },
+        },
+      },
       _count: { select: { campaigns: true } },
     },
+  });
+
+  const enriched = clients.map((c) => {
+    let activeCount = 0;
+    let totalInvestment = 0;
+    let latest: Date | null = null;
+
+    for (const camp of c.campaigns) {
+      if ((activeStatuses as readonly string[]).includes(camp.status)) {
+        activeCount++;
+      }
+      const budget = camp.budget ? Number(camp.budget) : 0;
+      const creators = camp.campaignCreators.filter(
+        (cc) => cc.status !== "DECLINED" && cc.status !== "REMOVED",
+      ).length;
+      totalInvestment += budget * Math.max(creators, 1);
+      if (!latest || camp.updatedAt > latest) latest = camp.updatedAt;
+    }
+
+    return {
+      ...c,
+      activeCount,
+      totalInvestment,
+      lastActivity: latest,
+    };
   });
 
   return (
@@ -27,7 +68,7 @@ export default async function ClientesPage() {
         </Link>
       </div>
 
-      {clients.length > 0 && (
+      {enriched.length > 0 && (
         <div className="rounded-xl border border-border bg-card overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -38,17 +79,23 @@ export default async function ClientesPage() {
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden sm:table-cell">
                   Industria
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                  Contacto
-                </th>
                 <th className="text-center px-4 py-3 font-medium text-muted-foreground">
-                  Campañas
+                  Activas
+                </th>
+                <th className="text-center px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
+                  Total
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                  Inversión
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
+                  Última actividad
                 </th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {clients.map((client) => (
+              {enriched.map((client) => (
                 <tr
                   key={client.id}
                   className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors"
@@ -73,11 +120,29 @@ export default async function ClientesPage() {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                    {client.email ?? "—"}
-                  </td>
                   <td className="px-4 py-3 text-center">
+                    {client.activeCount > 0 ? (
+                      <Badge className="bg-[#FF4B2C]/10 text-[#FF4B2C] border-0">
+                        {client.activeCount}
+                      </Badge>
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center hidden md:table-cell">
                     <span className="font-medium">{client._count.campaigns}</span>
+                  </td>
+                  <td className="px-4 py-3 text-right hidden lg:table-cell text-muted-foreground">
+                    {client.totalInvestment > 0 ? cop(client.totalInvestment) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right hidden lg:table-cell text-muted-foreground text-xs">
+                    {client.lastActivity
+                      ? client.lastActivity.toLocaleDateString("es-CO", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link href={`/clientes/${client.id}`}>

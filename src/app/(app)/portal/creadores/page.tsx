@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
+import { getCreatorTiersBatch } from "@/lib/creator-report";
+import { TierBadge } from "@/components/tier-badge";
 
 export default async function PortalCreadoresPage() {
   const session = await auth();
@@ -32,6 +34,8 @@ export default async function PortalCreadoresPage() {
       },
     },
   });
+
+  const tiers = await getCreatorTiersBatch(community.map((c) => c.creatorId));
 
   return (
     <div className="mx-auto max-w-4xl p-6">
@@ -68,6 +72,7 @@ export default async function PortalCreadoresPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-medium text-foreground">{c.fullName}</h3>
+                    <TierBadge tier={tiers.get(c.id) ?? "BRONZE"} />
                     <Badge variant="outline" className="text-[10px]">
                       {cc.campaignsCount} campaña{cc.campaignsCount !== 1 ? "s" : ""}
                     </Badge>

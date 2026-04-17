@@ -11,7 +11,8 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "create-admin": "tsx scripts/create-admin.ts",
-    "create-test-users": "tsx scripts/create-test-users.ts"
+    "create-test-users": "tsx scripts/create-test-users.ts",
+    "backfill-profiles": "tsx scripts/backfill-creator-profiles.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",

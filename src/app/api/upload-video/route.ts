@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       data: {
         script: result.viewUrl,
         status: "CLIENT_REVIEW",
+        firstSubmittedAt: piece.firstSubmittedAt ?? new Date(),
       },
     });
 

@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getCreatorReport } from "@/lib/creator-report";
+import { CreatorReportView } from "@/components/creator-report-view";
 
 async function deleteCreator(formData: FormData) {
   "use server";
@@ -34,6 +36,8 @@ export default async function CreadorDetallePage({
   });
 
   if (!creator) notFound();
+
+  const report = await getCreatorReport(id);
 
   return (
     <div className="mx-auto max-w-4xl p-6">
@@ -144,37 +148,11 @@ export default async function CreadorDetallePage({
         </div>
       )}
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h3 className="text-sm text-muted-foreground mb-4">
-          Campañas ({creator.campaignCreators.length})
-        </h3>
-        {creator.campaignCreators.length > 0 ? (
-          <div className="space-y-2">
-            {creator.campaignCreators.map((cc) => (
-              <div
-                key={cc.id}
-                className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3"
-              >
-                <div>
-                  <span className="text-sm font-medium text-foreground">
-                    {cc.campaign.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground ml-2">
-                    {cc.campaign.client.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">{cc.status}</Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Este creador todavía no participó en campañas.
-          </p>
-        )}
-      </div>
+      {report && (
+        <div className="mb-8">
+          <CreatorReportView report={report} />
+        </div>
+      )}
     </div>
   );
 }

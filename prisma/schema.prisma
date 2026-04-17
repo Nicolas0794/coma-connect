@@ -36,6 +36,9 @@ model User {
   contentReviews   ContentRevision[]  @relation("ContentReviewer")
   notifications    Notification[]
   campaignMessages CampaignMessage[]
+  savedCreators    SavedCreator[]
+  profileViews     ProfileView[]
+  inquiryMessages  InquiryMessage[]
 }
 
 model Account {
@@ -93,6 +96,9 @@ model Client {
   members         ClientMember[]
   campaigns       Campaign[]
   clientCreators  ClientCreator[]
+  portfolioItems  PortfolioItem[]
+  creatorReviews  CreatorReview[]
+  inquiries       Inquiry[]
 }
 
 // Comunidad de creadores que un cliente ya aceptó en campañas previas.
@@ -135,6 +141,55 @@ enum SocialPlatform {
   TIKTOK
 }
 
+enum CreatorType {
+  UGC
+  INFLUENCER
+  FILMMAKER
+  PHOTOGRAPHER
+  EDITOR
+  STRATEGIST
+  COPYWRITER
+  DESIGNER
+  MODEL
+}
+
+enum ContentFormat {
+  REEL
+  TIKTOK_VIDEO
+  PHOTO
+  LONG_VIDEO
+  CAROUSEL
+  LIVE
+  PODCAST
+  BLOG
+}
+
+enum Language {
+  ES
+  EN
+  PT
+}
+
+enum CreatorAvailability {
+  AVAILABLE
+  LIMITED
+  BUSY
+  CLOSED
+}
+
+enum CreatorProfileStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  SUSPENDED
+}
+
+enum ProfileVisibility {
+  PUBLIC
+  CLIENTS_ONLY
+  PRIVATE
+}
+
 model Creator {
   id               String   @id @default(cuid())
   userId           String?  @unique
@@ -155,11 +210,53 @@ model Creator {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user             User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // ── Connect: identidad pública ──
+  slug              String?  @unique
+  artistName        String?
+  headline          String?
+  valuePitch        String?
+
+  // ── Connect: clasificación ──
+  creatorTypes      CreatorType[]   @default([])
+  contentFormats    ContentFormat[] @default([])
+  languages         Language[]      @default([])
+  yearsOfExperience Int?
+
+  // ── Connect: estado del perfil ──
+  profileStatus       CreatorProfileStatus @default(DRAFT)
+  profileVisibility   ProfileVisibility    @default(PRIVATE)
+  profileCompleteness Int                  @default(0)
+  publishedAt         DateTime?
+
+  // ── Connect: disponibilidad y pricing (COP base, USD opcional) ──
+  availability CreatorAvailability @default(AVAILABLE)
+  showPricing  Boolean             @default(false)
+  baseRateCOP  Decimal?            @db.Decimal(14, 2)
+  baseRateUSD  Decimal?            @db.Decimal(10, 2)
+
+  // ── Connect: verificaciones ──
+  identityVerifiedAt DateTime?
+  comaVerifiedAt     DateTime?
+
+  // ── Connect: SEO ──
+  metaTitle       String?
+  metaDescription String?
+  ogImageUrl      String?
+
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   socialProfiles   CreatorSocialProfile[]
   campaignCreators CampaignCreator[]
   clientCreators   ClientCreator[]
   suggestions      CampaignSuggestion[]
+  services         Service[]
+  portfolioItems   PortfolioItem[]
+  reviews          CreatorReview[]
+  inquiries        Inquiry[]
+  savedByUsers     SavedCreator[]
+  profileViews     ProfileView[]
+
+  @@index([profileStatus, profileVisibility])
+  @@index([city, country])
 }
 
 model CreatorSocialProfile {
@@ -224,6 +321,7 @@ model Campaign {
   messages         CampaignMessage[]
   attachments      CampaignAttachment[]
   suggestions      CampaignSuggestion[]
+  inquiries        Inquiry[]
 }
 
 model CampaignAttachment {
@@ -280,10 +378,16 @@ model CampaignCreator {
   completedAt            DateTime?
   notes                  String?
 
+  // Rating del cliente al finalizar la campaña (1-5 estrellas)
+  clientRating           Int?
+  clientFeedback         String?
+  ratedAt                DateTime?
+
   campaign      Campaign       @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   creator       Creator        @relation(fields: [creatorId], references: [id], onDelete: Restrict)
   contentPieces ContentPiece[]
   payment       Payment?
+  review        CreatorReview?
 
   @@unique([campaignId, creatorId])
 }
@@ -324,12 +428,18 @@ model ContentPiece {
   plannedPublishDate  DateTime?
   actualPublishDate   DateTime?
   publishedUrl        String?
+
+  // Timestamps de transición para análisis de velocidad/comportamiento
+  firstSubmittedAt    DateTime?
+  approvedAt          DateTime?
+
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
   campaignCreator CampaignCreator    @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
   revisions       ContentRevision[]
   metrics         ContentMetric[]
+  portfolioItem   PortfolioItem?
 }
 
 model ContentRevision {
@@ -450,4 +560,160 @@ model CampaignMessage {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([campaignId, createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Connect — capa pública: servicios, portafolio, reputación, inquiries
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum InquiryStatus {
+  PENDING
+  VIEWED
+  QUOTED
+  ACCEPTED
+  REJECTED
+  CONVERTED_TO_CAMPAIGN
+  EXPIRED
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  creatorId    String
+  title        String
+  description  String?
+  format       ContentFormat?
+  priceCOP     Decimal?      @db.Decimal(14, 2)
+  priceUSD     Decimal?      @db.Decimal(10, 2)
+  deliveryDays Int?
+  isActive     Boolean       @default(true)
+  order        Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, isActive])
+}
+
+model PortfolioItem {
+  id               String         @id @default(cuid())
+  creatorId        String
+  title            String
+  description      String?
+  format           ContentFormat?
+  brandName        String?
+  clientId         String?
+  contentPieceId   String?        @unique
+  externalUrl      String?
+  coverImageUrl    String?
+  mediaUrls        String[]       @default([])
+  views            Int?
+  engagement       Float?
+  isVerifiedByComa Boolean        @default(false)
+  isFeatured       Boolean        @default(false)
+  order            Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  creator      Creator       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  contentPiece ContentPiece? @relation(fields: [contentPieceId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId, order])
+  @@index([creatorId, isFeatured])
+}
+
+model CreatorReview {
+  id                String   @id @default(cuid())
+  creatorId         String
+  clientId          String
+  campaignCreatorId String   @unique
+  rating            Int
+  feedback          String?
+  isPublic          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  creator         Creator         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  campaignCreator CampaignCreator @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, createdAt])
+}
+
+model Inquiry {
+  id           String        @id @default(cuid())
+  creatorId    String
+  clientId     String?
+  contactEmail String
+  contactName  String
+  contactPhone String?
+  brief        String
+  budgetCOP    Decimal?      @db.Decimal(14, 2)
+  deadline     DateTime?
+  status       InquiryStatus @default(PENDING)
+  campaignId   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  creator  Creator          @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  client   Client?          @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  campaign Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  quotes   Quote[]
+  messages InquiryMessage[]
+
+  @@index([creatorId, status, createdAt])
+}
+
+model Quote {
+  id           String    @id @default(cuid())
+  inquiryId    String
+  priceCOP     Decimal   @db.Decimal(14, 2)
+  scope        String
+  deliveryDays Int?
+  terms        String?
+  acceptedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, createdAt])
+}
+
+model InquiryMessage {
+  id        String   @id @default(cuid())
+  inquiryId String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  inquiry Inquiry @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
+  sender  User    @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([inquiryId, createdAt])
+}
+
+model SavedCreator {
+  id        String   @id @default(cuid())
+  userId    String
+  creatorId String
+  note      String?
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, creatorId])
+}
+
+model ProfileView {
+  id        String   @id @default(cuid())
+  creatorId String
+  viewerId  String?
+  source    String?
+  viewedAt  DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  viewer  User?   @relation(fields: [viewerId], references: [id], onDelete: SetNull)
+
+  @@index([creatorId, viewedAt])
 }

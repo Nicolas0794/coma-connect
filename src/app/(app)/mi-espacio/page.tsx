@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { notifyClientVideoReady, notifyTeamPublicationConfirmed } from "@/lib/notifications";
 import { VideoUploadForm } from "@/components/video-upload-form";
+import { getCreatorReport, TIER_META } from "@/lib/creator-report";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "Pendiente",
@@ -63,9 +64,18 @@ async function submitVideo(formData: FormData) {
 
   if (!videoUrl) return;
 
+  const existing = await prisma.contentPiece.findUnique({
+    where: { id: pieceId },
+    select: { firstSubmittedAt: true },
+  });
+
   const piece = await prisma.contentPiece.update({
     where: { id: pieceId },
-    data: { script: videoUrl, status: "CLIENT_REVIEW" },
+    data: {
+      script: videoUrl,
+      status: "CLIENT_REVIEW",
+      firstSubmittedAt: existing?.firstSubmittedAt ?? new Date(),
+    },
     include: {
       campaignCreator: {
         include: {
@@ -156,6 +166,8 @@ export default async function CreatorSpacePage() {
     );
   }
 
+  const report = await getCreatorReport(creator.id);
+
   // Campañas donde ya participa
   const myCampaigns = await prisma.campaignCreator.findMany({
     where: {
@@ -225,6 +237,61 @@ export default async function CreatorSpacePage() {
           CoMa Creator Space
         </p>
       </div>
+
+      {/* Tu nivel — gamificación */}
+      {report && (
+        <div
+          className={`rounded-xl border border-border p-5 mb-8 ${TIER_META[report.tier].bg}`}
+        >
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-4xl" aria-hidden>
+                {TIER_META[report.tier].emoji}
+              </span>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+                  Tu nivel
+                </p>
+                <p className={`text-2xl font-bold ${TIER_META[report.tier].color}`}>
+                  {TIER_META[report.tier].label}
+                </p>
+                {report.nextTier && report.scoreToNextTier != null && report.scoreToNextTier > 0 && (
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {report.scoreToNextTier} pts para{" "}
+                    {TIER_META[report.nextTier].label} {TIER_META[report.nextTier].emoji}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">
+                Tu puntaje
+              </p>
+              <p className="text-3xl font-bold text-foreground">{report.score}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {report.totalCompleted} campaña{report.totalCompleted !== 1 ? "s" : ""} completada{report.totalCompleted !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </div>
+
+          {report.badges.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {report.badges.map((b) => (
+                <div
+                  key={b.id}
+                  title={b.description}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1"
+                >
+                  <span className="text-sm">{b.emoji}</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {b.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Campañas disponibles para postularse */}
       {Object.keys(campaignsByClient).length > 0 && (

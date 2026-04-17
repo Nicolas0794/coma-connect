@@ -14,6 +14,7 @@ import {
   Film,
   Sparkles,
   Users,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ const adminTools: NavLink[] = [
 
 const clientLinks: NavLink[] = [
   { href: "/portal", label: "Mis campañas", icon: Megaphone, exact: true },
+  { href: "/portal/reporte", label: "Reporte", icon: BarChart3 },
   { href: "/portal/creadores", label: "Mi comunidad", icon: Users },
   { href: "/portal/nueva-campana", label: "Nueva campaña", icon: Sparkles },
 ];

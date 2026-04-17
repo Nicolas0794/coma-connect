@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VerifyButton } from "@/components/verify-button";
 import { notifyCreatorSelected, notifyCreatorVideoApproved, notifyCreatorChangesRequested } from "@/lib/notifications";
+import { getCreatorTiersBatch } from "@/lib/creator-report";
+import { TierBadge } from "@/components/tier-badge";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "En producción",
@@ -115,13 +117,87 @@ async function rejectCreator(formData: FormData) {
   redirect(`/portal/${campaignId}`);
 }
 
+async function closeCampaign(formData: FormData) {
+  "use server";
+  const campaignId = formData.get("campaignId") as string;
+
+  const session = await auth();
+  if (session?.user?.role !== "CLIENT") return;
+
+  const membership = await prisma.clientMember.findFirst({
+    where: { userId: session.user.id },
+    select: { clientId: true },
+  });
+  if (!membership) return;
+
+  const now = new Date();
+  await prisma.campaign.update({
+    where: { id: campaignId, clientId: membership.clientId },
+    data: { status: "COMPLETED" },
+  });
+  // Marcar completados los CampaignCreator activos sin completedAt
+  await prisma.campaignCreator.updateMany({
+    where: {
+      campaignId,
+      status: { notIn: ["DECLINED", "REMOVED", "COMPLETED"] },
+    },
+    data: { status: "COMPLETED", completedAt: now },
+  });
+  redirect(`/portal/${campaignId}`);
+}
+
+async function rateCreator(formData: FormData) {
+  "use server";
+  const ccId = formData.get("ccId") as string;
+  const campaignId = formData.get("campaignId") as string;
+  const ratingRaw = (formData.get("rating") as string) || "";
+  const feedback = (formData.get("feedback") as string)?.trim() || null;
+  const rating = Math.min(5, Math.max(1, parseInt(ratingRaw, 10) || 0));
+
+  if (rating < 1) return;
+
+  const session = await auth();
+  if (session?.user?.role !== "CLIENT") return;
+
+  const membership = await prisma.clientMember.findFirst({
+    where: { userId: session.user.id },
+    select: { clientId: true },
+  });
+  if (!membership) return;
+
+  // Confirmar que el CampaignCreator pertenece a una campaña del cliente.
+  const cc = await prisma.campaignCreator.findUnique({
+    where: { id: ccId },
+    select: { campaign: { select: { clientId: true } } },
+  });
+  if (!cc || cc.campaign.clientId !== membership.clientId) return;
+
+  await prisma.campaignCreator.update({
+    where: { id: ccId },
+    data: {
+      clientRating: rating,
+      clientFeedback: feedback,
+      ratedAt: new Date(),
+    },
+  });
+  redirect(`/portal/${campaignId}`);
+}
+
 async function approveContent(formData: FormData) {
   "use server";
   const pieceId = formData.get("pieceId") as string;
   const campaignId = formData.get("campaignId") as string;
+  const existing = await prisma.contentPiece.findUnique({
+    where: { id: pieceId },
+    select: { approvedAt: true },
+  });
+
   const piece = await prisma.contentPiece.update({
     where: { id: pieceId },
-    data: { status: "APPROVED" },
+    data: {
+      status: "APPROVED",
+      approvedAt: existing?.approvedAt ?? new Date(),
+    },
     include: {
       campaignCreator: {
         include: {
@@ -247,6 +323,11 @@ export default async function PortalCampanaPage({
     (s) => !alreadyInCampaign.has(s.creatorId),
   );
 
+  const tiers = await getCreatorTiersBatch([
+    ...pendingSuggestions.map((s) => s.creatorId),
+    ...campaign.campaignCreators.map((cc) => cc.creatorId),
+  ]);
+
   const pendingApproval = campaign.campaignCreators.filter(
     (cc) => cc.status === "INVITED"
   );
@@ -281,10 +362,21 @@ export default async function PortalCampanaPage({
             <Link href={`/campanas/${campaignId}/chat`}>
               <Button variant="outline" size="sm">Chat</Button>
             </Link>
+            {campaign.status !== "COMPLETED" && campaign.status !== "CANCELLED" && (
+              <form action={closeCampaign}>
+                <input type="hidden" name="campaignId" value={campaignId} />
+                <Button type="submit" size="sm">Cerrar campaña</Button>
+              </form>
+            )}
           </div>
         </div>
         {campaign.objective && (
           <p className="text-sm text-muted-foreground mt-1">{campaign.objective}</p>
+        )}
+        {campaign.status === "COMPLETED" && (
+          <p className="text-xs text-lime-700 mt-1 font-medium">
+            Campaña completada — podés calificar a cada creadora abajo.
+          </p>
         )}
       </div>
 
@@ -341,6 +433,7 @@ export default async function PortalCampanaPage({
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium text-foreground">{c.fullName}</h3>
+                          <TierBadge tier={tiers.get(c.id) ?? "BRONZE"} />
                           {sug.fromCommunity && (
                             <Badge className="text-[10px] bg-[#FF4B2C]/15 text-[#FF4B2C] border-0">
                               De tu comunidad
@@ -405,9 +498,12 @@ export default async function PortalCampanaPage({
                       {cc.creator.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">
-                        {cc.creator.fullName}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-medium text-foreground">
+                          {cc.creator.fullName}
+                        </h3>
+                        <TierBadge tier={tiers.get(cc.creator.id) ?? "BRONZE"} />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {cc.creator.city}{cc.creator.country ? `, ${cc.creator.country}` : ""}
                       </p>
@@ -548,26 +644,86 @@ export default async function PortalCampanaPage({
           <h2 className="text-lg text-foreground mb-4">
             Creadores activos ({approved.length})
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {approved.map((cc) => (
               <div
                 key={cc.id}
-                className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-3"
+                className="rounded-xl border border-border bg-card px-5 py-3"
               >
-                <div className="flex items-center gap-3">
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                    {cc.creator.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                      {cc.creator.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">
+                      {cc.creator.fullName}
+                    </span>
+                    <TierBadge tier={tiers.get(cc.creator.id) ?? "BRONZE"} />
                   </div>
-                  <span className="text-sm font-medium text-foreground">
-                    {cc.creator.fullName}
-                  </span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{cc.contentPieces.length} pieza{cc.contentPieces.length !== 1 ? "s" : ""}</span>
+                    <Badge variant="outline">
+                      {cc.contentPieces.filter((p) => p.status === "PUBLISHED").length} publicada{cc.contentPieces.filter((p) => p.status === "PUBLISHED").length !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{cc.contentPieces.length} pieza{cc.contentPieces.length !== 1 ? "s" : ""}</span>
-                  <Badge variant="outline">
-                    {cc.contentPieces.filter((p) => p.status === "PUBLISHED").length} publicada{cc.contentPieces.filter((p) => p.status === "PUBLISHED").length !== 1 ? "s" : ""}
-                  </Badge>
-                </div>
+
+                {/* Rating: si está COMPLETED y todavía no tiene rating, ofrecer form */}
+                {campaign.status === "COMPLETED" && cc.clientRating == null && (
+                  <form
+                    action={rateCreator}
+                    className="mt-3 pt-3 border-t border-border"
+                  >
+                    <input type="hidden" name="ccId" value={cc.id} />
+                    <input type="hidden" name="campaignId" value={campaignId} />
+                    <p className="text-xs text-muted-foreground mb-2">
+                      ¿Cómo fue trabajar con {cc.creator.fullName.split(" ")[0]}?
+                    </p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <label
+                            key={n}
+                            className="cursor-pointer"
+                            title={`${n} estrella${n !== 1 ? "s" : ""}`}
+                          >
+                            <input
+                              type="radio"
+                              name="rating"
+                              value={n}
+                              required
+                              className="peer sr-only"
+                            />
+                            <span className="text-xl grayscale peer-checked:grayscale-0 hover:grayscale-0 transition-all">
+                              ⭐
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <input
+                        name="feedback"
+                        placeholder="Feedback opcional..."
+                        className="flex-1 min-w-[180px] h-9 rounded-lg border border-input/60 bg-secondary px-3 text-xs outline-none focus:border-accent"
+                      />
+                      <Button type="submit" size="sm">Calificar</Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Rating ya dejado: mostrar */}
+                {cc.clientRating != null && (
+                  <div className="mt-3 pt-3 border-t border-border flex items-start gap-2">
+                    <span className="text-sm">
+                      {"⭐".repeat(cc.clientRating)}
+                      {"☆".repeat(5 - cc.clientRating)}
+                    </span>
+                    {cc.clientFeedback && (
+                      <p className="text-xs text-muted-foreground italic">
+                        &ldquo;{cc.clientFeedback}&rdquo;
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
