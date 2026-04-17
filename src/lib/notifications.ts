@@ -206,3 +206,25 @@ export async function notifyTeamPublicationConfirmed(
     ),
   );
 }
+
+export async function notifyCreatorNewInquiry(
+  creatorEmail: string,
+  creatorName: string,
+  senderName: string,
+  brief: string,
+  inquiryId: string,
+) {
+  const preview = brief.length > 240 ? brief.slice(0, 240) + "…" : brief;
+  await sendEmail(
+    creatorEmail,
+    `💌 Nueva solicitud de ${senderName}`,
+    wrap(
+      `Hola ${creatorName},`,
+      `<p><strong>${senderName}</strong> te escribió a través de tu perfil en CoMa Connect.</p>
+       <blockquote style="margin:16px 0; padding:12px 16px; border-left:3px solid #FF4B2C; color:#555; background:#FFF5F2; white-space:pre-line;">${preview}</blockquote>
+       <p>Revisá el mensaje completo, respondé con cotización o decliná la solicitud.</p>`,
+      "Ver solicitud",
+      `${BASE_URL}/mi-espacio/inquiries/${inquiryId}`,
+    ),
+  );
+}

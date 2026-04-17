@@ -7,8 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { findPublicCreatorBySlug, averageRating } from "@/lib/public-creator";
+import { ContactCreatorForm } from "@/components/contact-creator-form";
 
 type Params = Promise<{ slug: string }>;
+type SP = Promise<{ inquiry?: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
@@ -59,8 +61,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function PublicCreatorPage({ params }: { params: Params }) {
+export default async function PublicCreatorPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: SP;
+}) {
   const { slug } = await params;
+  const { inquiry } = await searchParams;
   const creator = await findPublicCreatorBySlug(slug);
   if (!creator) notFound();
 
@@ -142,14 +151,28 @@ export default async function PublicCreatorPage({ params }: { params: Params }) 
           )}
         </div>
         <div className="flex flex-col gap-2 md:w-48">
-          <Button size="lg" className="w-full bg-[#FF4B2C] hover:bg-[#FF4B2C]/90">
-            Contactar
-          </Button>
+          <ContactCreatorForm
+            slug={slug}
+            creatorName={displayName}
+            prefillName={session?.user?.name ?? undefined}
+            prefillEmail={session?.user?.email ?? undefined}
+          />
           <Button variant="outline" size="lg" className="w-full">
             Guardar
           </Button>
         </div>
       </div>
+
+      {inquiry === "sent" && (
+        <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
+          ✓ Tu solicitud fue enviada. {displayName} te responderá pronto por email.
+        </div>
+      )}
+      {inquiry === "validation" && (
+        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          Completá nombre, email y un brief de al menos 20 caracteres.
+        </div>
+      )}
 
       {/* Pitch */}
       {(creator.valuePitch || creator.bio) && (

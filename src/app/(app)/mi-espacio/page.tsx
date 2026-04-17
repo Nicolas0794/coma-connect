@@ -155,6 +155,12 @@ export default async function CreatorSpacePage() {
     where: { userId: session.user.id },
   });
 
+  const unreadInquiriesCount = creator
+    ? await prisma.inquiry.count({
+        where: { creatorId: creator.id, status: "PENDING" },
+      })
+    : 0;
+
   if (!creator) {
     return (
       <div className="mx-auto max-w-4xl p-6">
@@ -282,6 +288,27 @@ export default async function CreatorSpacePage() {
             className="h-full bg-[#FF4B2C] transition-all"
             style={{ width: `${creator.profileCompleteness}%` }}
           />
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-4">
+          <div>
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Solicitudes de marcas
+            </p>
+            <p className="text-sm mt-0.5">
+              {unreadInquiriesCount > 0 ? (
+                <span className="font-medium text-[#FF4B2C]">
+                  {unreadInquiriesCount} nueva{unreadInquiriesCount !== 1 ? "s" : ""} sin leer
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Sin solicitudes nuevas</span>
+              )}
+            </p>
+          </div>
+          <a href="/mi-espacio/inquiries">
+            <Button size="sm" variant="outline">
+              Ver solicitudes
+            </Button>
+          </a>
         </div>
       </div>
 
