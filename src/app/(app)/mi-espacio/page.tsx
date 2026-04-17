@@ -238,6 +238,53 @@ export default async function CreatorSpacePage() {
         </p>
       </div>
 
+      {/* Perfil público Connect */}
+      <div className="mb-8 rounded-xl border border-border bg-card p-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Tu perfil Connect
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-lg font-semibold">
+                {creator.profileStatus === "PUBLISHED"
+                  ? "Publicado"
+                  : creator.profileStatus === "PENDING_REVIEW"
+                    ? "En revisión"
+                    : "Borrador"}
+              </p>
+              {creator.profileStatus === "PUBLISHED" && creator.slug && (
+                <a
+                  href={`/@${creator.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  ver perfil ↗
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Completitud</p>
+              <p className="text-xl font-bold">{creator.profileCompleteness}%</p>
+            </div>
+            <a href="/mi-espacio/perfil">
+              <Button size="sm">
+                {creator.profileCompleteness < 100 ? "Completar perfil" : "Editar perfil"}
+              </Button>
+            </a>
+          </div>
+        </div>
+        <div className="mt-3 h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+          <div
+            className="h-full bg-[#FF4B2C] transition-all"
+            style={{ width: `${creator.profileCompleteness}%` }}
+          />
+        </div>
+      </div>
+
       {/* Tu nivel — gamificación */}
       {report && (
         <div

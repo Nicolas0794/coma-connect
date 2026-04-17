@@ -14,6 +14,30 @@ async function deleteCreator(formData: FormData) {
   redirect("/creadores");
 }
 
+async function publishCreator(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  await prisma.creator.update({
+    where: { id },
+    data: {
+      profileStatus: "PUBLISHED",
+      profileVisibility: "PUBLIC",
+      publishedAt: new Date(),
+    },
+  });
+  redirect(`/creadores/${id}`);
+}
+
+async function unpublishCreator(formData: FormData) {
+  "use server";
+  const id = formData.get("id") as string;
+  await prisma.creator.update({
+    where: { id },
+    data: { profileStatus: "DRAFT", profileVisibility: "PRIVATE" },
+  });
+  redirect(`/creadores/${id}`);
+}
+
 export default async function CreadorDetallePage({
   params,
 }: {
@@ -131,6 +155,65 @@ export default async function CreadorDetallePage({
           ) : (
             <p className="text-sm text-muted-foreground">Sin redes cargadas.</p>
           )}
+        </div>
+      </div>
+
+      {/* Perfil Connect — gestión de publicación */}
+      <div className="rounded-xl border border-border bg-card p-5 mb-8">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h3 className="text-sm text-muted-foreground mb-1">Perfil Connect (público)</h3>
+            <div className="flex items-center gap-2">
+              <Badge
+                className={
+                  creator.profileStatus === "PUBLISHED"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : creator.profileStatus === "PENDING_REVIEW"
+                      ? "bg-amber-50 text-amber-700 border-amber-200"
+                      : "bg-muted text-muted-foreground"
+                }
+              >
+                {creator.profileStatus === "PUBLISHED"
+                  ? "Publicado"
+                  : creator.profileStatus === "PENDING_REVIEW"
+                    ? "En revisión"
+                    : creator.profileStatus === "SUSPENDED"
+                      ? "Suspendido"
+                      : "Borrador"}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                Completitud: <span className="font-semibold text-foreground">{creator.profileCompleteness}%</span>
+              </span>
+              {creator.slug && (
+                <a
+                  href={`/@${creator.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  /@{creator.slug} ↗
+                </a>
+              )}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {creator.profileStatus !== "PUBLISHED" && (
+              <form action={publishCreator}>
+                <input type="hidden" name="id" value={id} />
+                <Button type="submit" size="sm" className="bg-[#FF4B2C] hover:bg-[#FF4B2C]/90">
+                  {creator.profileStatus === "PENDING_REVIEW" ? "Aprobar y publicar" : "Publicar"}
+                </Button>
+              </form>
+            )}
+            {creator.profileStatus === "PUBLISHED" && (
+              <form action={unpublishCreator}>
+                <input type="hidden" name="id" value={id} />
+                <Button type="submit" size="sm" variant="outline">
+                  Despublicar
+                </Button>
+              </form>
+            )}
+          </div>
         </div>
       </div>
 

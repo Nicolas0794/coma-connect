@@ -6,14 +6,26 @@ import { Badge } from "@/components/ui/badge";
 export default async function CreadoresPage({
   searchParams,
 }: {
-  searchParams: Promise<{ nicho?: string }>;
+  searchParams: Promise<{ nicho?: string; estado?: string }>;
 }) {
   const params = await searchParams;
   const nichoFilter = params.nicho?.trim();
+  const estadoFilter = params.estado?.trim();
+
+  const pendingCount = await prisma.creator.count({
+    where: { profileStatus: "PENDING_REVIEW" },
+  });
 
   const creators = await prisma.creator.findMany({
     orderBy: { createdAt: "desc" },
-    where: nichoFilter ? { niches: { has: nichoFilter } } : undefined,
+    where: {
+      ...(nichoFilter ? { niches: { has: nichoFilter } } : {}),
+      ...(estadoFilter === "pendientes"
+        ? { profileStatus: "PENDING_REVIEW" }
+        : estadoFilter === "publicados"
+          ? { profileStatus: "PUBLISHED" }
+          : {}),
+    },
     include: {
       socialProfiles: true,
       _count: { select: { campaignCreators: true } },
@@ -43,21 +55,40 @@ export default async function CreadoresPage({
         </Link>
       </div>
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        <Link href="/creadores">
+          <Badge
+            variant={!estadoFilter && !nichoFilter ? "default" : "outline"}
+            className="cursor-pointer"
+          >
+            Todos
+          </Badge>
+        </Link>
+        <Link href="/creadores?estado=pendientes">
+          <Badge
+            variant={estadoFilter === "pendientes" ? "default" : "outline"}
+            className={`cursor-pointer ${pendingCount > 0 && estadoFilter !== "pendientes" ? "bg-amber-50 text-amber-700 border-amber-200" : ""}`}
+          >
+            Pendientes de revisión {pendingCount > 0 && `(${pendingCount})`}
+          </Badge>
+        </Link>
+        <Link href="/creadores?estado=publicados">
+          <Badge
+            variant={estadoFilter === "publicados" ? "default" : "outline"}
+            className="cursor-pointer"
+          >
+            Publicados
+          </Badge>
+        </Link>
+      </div>
+
       {uniqueNiches.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-6">
-          <Link href="/creadores">
-            <Badge
-              variant={!nichoFilter ? "default" : "outline"}
-              className="cursor-pointer"
-            >
-              Todos
-            </Badge>
-          </Link>
           {uniqueNiches.map((nicho) => (
             <Link key={nicho} href={`/creadores?nicho=${encodeURIComponent(nicho)}`}>
               <Badge
                 variant={nichoFilter === nicho ? "default" : "outline"}
-                className="cursor-pointer"
+                className="cursor-pointer text-xs"
               >
                 {nicho}
               </Badge>

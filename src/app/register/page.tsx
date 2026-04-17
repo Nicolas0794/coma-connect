@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreatorAvatarsBg } from "@/components/creator-avatars-bg";
+import { generateUniqueSlug } from "@/lib/creator-profile";
 
 async function register(formData: FormData) {
   "use server";
@@ -25,7 +26,7 @@ async function register(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name,
       email,
@@ -34,10 +35,22 @@ async function register(formData: FormData) {
     },
   });
 
+  const slug = await generateUniqueSlug(name);
+  await prisma.creator.create({
+    data: {
+      userId: user.id,
+      fullName: name,
+      email,
+      slug,
+      profileStatus: "DRAFT",
+      profileVisibility: "PRIVATE",
+    },
+  });
+
   await signIn("credentials", {
     email,
     password,
-    redirectTo: "/",
+    redirectTo: "/mi-espacio/perfil",
   });
 }
 
