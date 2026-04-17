@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
-import { findPublicCreatorBySlug, averageRating } from "@/lib/public-creator";
+import { findPublicCreatorBySlug, averageRating, getDerivedBadges } from "@/lib/public-creator";
 import { ContactCreatorForm } from "@/components/contact-creator-form";
 
 type Params = Promise<{ slug: string }>;
@@ -89,6 +89,13 @@ export default async function PublicCreatorPage({
   const displayName = creator.artistName || creator.fullName;
   const avg = averageRating(creator.reviews);
   const isVerified = Boolean(creator.comaVerifiedAt);
+  const badges = getDerivedBadges({
+    avgRating: creator.avgRating,
+    reviewsCount: creator.reviewsCount,
+    campaignsCount: creator._count.campaignCreators,
+    comaVerifiedAt: creator.comaVerifiedAt,
+    publishedAt: creator.publishedAt,
+  });
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
@@ -146,6 +153,20 @@ export default async function PublicCreatorPage({
                 <Badge key={t} variant="outline" className="font-normal">
                   {t.toLowerCase()}
                 </Badge>
+              ))}
+            </div>
+          )}
+          {badges.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {badges.map((b) => (
+                <span
+                  key={b.key}
+                  title={b.description}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1 text-xs font-medium"
+                >
+                  <span aria-hidden>{b.emoji}</span>
+                  {b.label}
+                </span>
               ))}
             </div>
           )}
@@ -266,7 +287,14 @@ export default async function PublicCreatorPage({
       {/* Reseñas */}
       {creator.reviews.length > 0 && (
         <section className="py-8 border-b border-border">
-          <h2 className="text-xl font-semibold mb-4">Reseñas de marcas</h2>
+          <div className="flex items-baseline gap-3 mb-4">
+            <h2 className="text-xl font-semibold">Reseñas de marcas</h2>
+            {creator.avgRating != null && (
+              <span className="text-sm text-muted-foreground">
+                ★ {creator.avgRating.toFixed(1)} ({creator._count.reviews} reseñas)
+              </span>
+            )}
+          </div>
           <div className="grid md:grid-cols-2 gap-4">
             {creator.reviews.map((r) => (
               <Card key={r.id}>
@@ -282,6 +310,14 @@ export default async function PublicCreatorPage({
                   </div>
                   {r.feedback && <p className="text-sm text-foreground/80">{r.feedback}</p>}
                   <p className="mt-3 text-xs font-medium">{r.client.name}</p>
+                  {r.creatorResponse && (
+                    <div className="mt-3 rounded-lg bg-muted p-3 border-l-2 border-[#FF4B2C]">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                        Respuesta de {displayName}
+                      </p>
+                      <p className="text-xs whitespace-pre-line">{r.creatorResponse}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

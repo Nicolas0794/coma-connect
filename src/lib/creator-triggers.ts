@@ -1,5 +1,21 @@
 import { prisma } from "@/lib/prisma";
 
+// Recalcula avgRating y reviewsCount en el Creator a partir de sus reviews públicas.
+export async function recomputeCreatorRating(creatorId: string) {
+  const agg = await prisma.creatorReview.aggregate({
+    where: { creatorId, isPublic: true },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+  await prisma.creator.update({
+    where: { id: creatorId },
+    data: {
+      avgRating: agg._avg.rating,
+      reviewsCount: agg._count._all,
+    },
+  });
+}
+
 // Hook: llamar cuando un CampaignCreator pasa a COMPLETED.
 // Setea Creator.comaVerifiedAt si todavía es null (primera campaña completada).
 export async function syncCreatorVerificationOnComplete(campaignCreatorId: string) {
@@ -47,17 +63,18 @@ export async function upsertPublicReviewFromRating(campaignCreatorId: string) {
         feedback: cc.clientFeedback,
       },
     });
-    return;
+  } else {
+    await prisma.creatorReview.create({
+      data: {
+        creatorId: cc.creatorId,
+        clientId: cc.campaign.clientId,
+        campaignCreatorId: cc.id,
+        rating: cc.clientRating,
+        feedback: cc.clientFeedback,
+        createdAt: cc.ratedAt ?? new Date(),
+      },
+    });
   }
 
-  await prisma.creatorReview.create({
-    data: {
-      creatorId: cc.creatorId,
-      clientId: cc.campaign.clientId,
-      campaignCreatorId: cc.id,
-      rating: cc.clientRating,
-      feedback: cc.clientFeedback,
-      createdAt: cc.ratedAt ?? new Date(),
-    },
-  });
+  await recomputeCreatorRating(cc.creatorId);
 }

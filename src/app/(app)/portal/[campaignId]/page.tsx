@@ -11,6 +11,7 @@ import { TierBadge } from "@/components/tier-badge";
 import {
   syncCreatorVerificationOnComplete,
   upsertPublicReviewFromRating,
+  recomputeCreatorRating,
 } from "@/lib/creator-triggers";
 
 const contentStatusLabels: Record<string, string> = {
@@ -183,6 +184,8 @@ async function rateCreator(formData: FormData) {
   });
   if (!cc || cc.campaign.clientId !== membership.clientId) return;
 
+  const isPublic = formData.get("isPublic") === "on";
+
   await prisma.campaignCreator.update({
     where: { id: ccId },
     data: {
@@ -192,6 +195,16 @@ async function rateCreator(formData: FormData) {
     },
   });
   await upsertPublicReviewFromRating(ccId);
+  // Reflejar la preferencia del cliente (el hook setea public=true por default)
+  await prisma.creatorReview.updateMany({
+    where: { campaignCreatorId: ccId },
+    data: { isPublic },
+  });
+  const ccAfter = await prisma.campaignCreator.findUnique({
+    where: { id: ccId },
+    select: { creatorId: true },
+  });
+  if (ccAfter) await recomputeCreatorRating(ccAfter.creatorId);
   redirect(`/portal/${campaignId}`);
 }
 
@@ -719,6 +732,15 @@ export default async function PortalCampanaPage({
                       />
                       <Button type="submit" size="sm">Calificar</Button>
                     </div>
+                    <label className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="isPublic"
+                        defaultChecked
+                        className="cursor-pointer"
+                      />
+                      Hacer pública esta reseña en el perfil del creador
+                    </label>
                   </form>
                 )}
 

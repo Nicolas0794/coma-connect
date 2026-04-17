@@ -238,6 +238,10 @@ model Creator {
   identityVerifiedAt DateTime?
   comaVerifiedAt     DateTime?
 
+  // ── Connect: reputación agregada (denormalizada, recalculada vía trigger) ──
+  avgRating    Float?
+  reviewsCount Int    @default(0)
+
   // ── Connect: SEO ──
   metaTitle       String?
   metaDescription String?
@@ -631,6 +635,8 @@ model CreatorReview {
   rating            Int
   feedback          String?
   isPublic          Boolean  @default(true)
+  creatorResponse   String?
+  creatorResponseAt DateTime?
   createdAt         DateTime @default(now())
 
   creator         Creator         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
@@ -638,6 +644,7 @@ model CreatorReview {
   campaignCreator CampaignCreator @relation(fields: [campaignCreatorId], references: [id], onDelete: Cascade)
 
   @@index([creatorId, createdAt])
+  @@index([creatorId, rating])
 }
 
 model Inquiry {

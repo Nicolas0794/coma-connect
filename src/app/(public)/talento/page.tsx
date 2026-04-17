@@ -19,6 +19,7 @@ type SearchParams = Promise<{
   disponibilidad?: string;
   verificados?: string;
   seguidores?: string;
+  rating?: string;
   orden?: string;
   page?: string;
 }>;
@@ -70,6 +71,7 @@ export default async function TalentoPage({
   const page = Math.max(1, parseInt(p.page ?? "1", 10) || 1);
   const sort = (SORTS.some((s) => s.key === p.orden) ? p.orden : "relevant") as SortKey;
   const minFollowersNum = parseInt(p.seguidores ?? "0", 10) || 0;
+  const minRating = parseFloat(p.rating ?? "0") || 0;
 
   const { items, total } = await searchPublicCreators({
     q: p.q?.trim() || undefined,
@@ -80,6 +82,7 @@ export default async function TalentoPage({
     availability: p.disponibilidad?.trim() || undefined,
     verifiedOnly: p.verificados === "1",
     minFollowers: minFollowersNum > 0 ? minFollowersNum : undefined,
+    minRating: minRating > 0 ? minRating : undefined,
     sort,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
@@ -95,6 +98,7 @@ export default async function TalentoPage({
   if (p.formato) activeFilters.push(CONTENT_FORMATS.find((f) => f.key === p.formato)?.label ?? p.formato);
   if (p.verificados === "1") activeFilters.push("Verificados");
   if (minFollowersNum > 0) activeFilters.push(`${minFollowersNum.toLocaleString("es-CO")}+ seguidores`);
+  if (minRating > 0) activeFilters.push(`${minRating}⭐+`);
 
   // Para paginación: preservar los filtros actuales
   const buildPageUrl = (newPage: number) => {
@@ -206,6 +210,22 @@ export default async function TalentoPage({
               </select>
             </div>
 
+            <div>
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-2">
+                Rating mínimo
+              </label>
+              <select
+                name="rating"
+                defaultValue={p.rating ?? "0"}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="0">Cualquiera</option>
+                <option value="4">4⭐ o más</option>
+                <option value="4.5">4.5⭐ o más</option>
+                <option value="5">5⭐ únicamente</option>
+              </select>
+            </div>
+
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input
                 type="checkbox"
@@ -306,10 +326,13 @@ export default async function TalentoPage({
                         {c.headline && (
                           <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">{c.headline}</p>
                         )}
-                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                           {c.city && <span>📍 {c.city}</span>}
                           {topSocial?.verifiedFollowers && (
                             <span>· {topSocial.verifiedFollowers.toLocaleString("es-CO")} seguidores</span>
+                          )}
+                          {c.avgRating != null && c.reviewsCount > 0 && (
+                            <span>· ★ {c.avgRating.toFixed(1)} ({c.reviewsCount})</span>
                           )}
                         </div>
                       </div>

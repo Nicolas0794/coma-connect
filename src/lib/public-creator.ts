@@ -21,9 +21,14 @@ export async function findPublicCreatorBySlug(slug: string) {
         where: { isPublic: true },
         include: { client: { select: { name: true, logoUrl: true } } },
         orderBy: { createdAt: "desc" },
-        take: 6,
+        take: 20,
       },
-      _count: { select: { reviews: true, campaignCreators: true } },
+      _count: {
+        select: {
+          reviews: { where: { isPublic: true } },
+          campaignCreators: true,
+        },
+      },
     },
   });
 }
@@ -39,6 +44,7 @@ export interface DiscoveryFilters {
   availability?: string;
   verifiedOnly?: boolean;
   minFollowers?: number;
+  minRating?: number;
   sort?: SortKey;
   limit?: number;
   offset?: number;
@@ -83,6 +89,9 @@ function buildWhere(filters: DiscoveryFilters): Prisma.CreatorWhereInput {
     where.socialProfiles = {
       some: { verifiedFollowers: { gte: filters.minFollowers } },
     };
+  }
+  if (filters.minRating && filters.minRating > 0) {
+    where.avgRating = { gte: filters.minRating };
   }
 
   return where;
@@ -134,6 +143,8 @@ export async function searchPublicCreators(filters: DiscoveryFilters) {
         creatorTypes: true,
         comaVerifiedAt: true,
         availability: true,
+        avgRating: true,
+        reviewsCount: true,
         socialProfiles: {
           select: { platform: true, verifiedFollowers: true },
           orderBy: { verifiedFollowers: { sort: "desc", nulls: "last" } },
@@ -151,4 +162,64 @@ export function averageRating(reviews: { rating: number }[]): number | null {
   if (!reviews.length) return null;
   const total = reviews.reduce((sum, r) => sum + r.rating, 0);
   return Math.round((total / reviews.length) * 10) / 10;
+}
+
+export interface CreatorBadge {
+  key: string;
+  emoji: string;
+  label: string;
+  description: string;
+}
+
+type BadgeInput = {
+  avgRating: number | null;
+  reviewsCount: number;
+  campaignsCount: number;
+  comaVerifiedAt: Date | null;
+  publishedAt: Date | null;
+};
+
+export function getDerivedBadges(input: BadgeInput): CreatorBadge[] {
+  const badges: CreatorBadge[] = [];
+  const { avgRating, reviewsCount, campaignsCount, comaVerifiedAt, publishedAt } = input;
+
+  if (avgRating === 5 && reviewsCount >= 3) {
+    badges.push({
+      key: "perfect",
+      emoji: "💯",
+      label: "Rating perfecto",
+      description: `${reviewsCount} reseñas con 5⭐`,
+    });
+  } else if (avgRating != null && avgRating >= 4.5 && reviewsCount >= 3) {
+    badges.push({
+      key: "top",
+      emoji: "🏆",
+      label: "Top rated",
+      description: `${avgRating.toFixed(1)}⭐ promedio (${reviewsCount} reseñas)`,
+    });
+  }
+
+  if (campaignsCount >= 10) {
+    badges.push({
+      key: "veterana",
+      emoji: "💎",
+      label: "Veterana",
+      description: `${campaignsCount} campañas ejecutadas`,
+    });
+  }
+
+  if (comaVerifiedAt && publishedAt) {
+    const daysSincePublished =
+      (Date.now() - new Date(publishedAt).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSincePublished < 30 && campaignsCount < 3) {
+      badges.push({
+        key: "new",
+        emoji: "🌱",
+        label: "Nueva en CoMa",
+        description: "Perfil reciente",
+      });
+    }
+  }
+
+  return badges;
 }
