@@ -165,6 +165,66 @@ export async function removeService(formData: FormData) {
   revalidatePath("/mi-espacio/perfil");
 }
 
+export async function promoteContentPieceToPortfolio(formData: FormData) {
+  const creator = await requireCreator();
+  const contentPieceId = (formData.get("contentPieceId") as string) ?? "";
+  if (!contentPieceId) return;
+
+  const piece = await prisma.contentPiece.findUnique({
+    where: { id: contentPieceId },
+    include: {
+      campaignCreator: {
+        include: {
+          campaign: { select: { client: { select: { id: true, name: true } } } },
+        },
+      },
+      metrics: { orderBy: { capturedAt: "desc" }, take: 1 },
+    },
+  });
+
+  // Seguridad: solo acepta piezas publicadas que pertenezcan al creador logeado.
+  if (
+    !piece ||
+    piece.campaignCreator.creatorId !== creator.id ||
+    piece.status !== "PUBLISHED"
+  ) {
+    return;
+  }
+
+  const latest = piece.metrics[0];
+  const formatMap: Record<string, "REEL" | "PHOTO" | "CAROUSEL" | "LONG_VIDEO" | "TIKTOK_VIDEO"> = {
+    REEL: "REEL",
+    POST: "PHOTO",
+    CAROUSEL: "CAROUSEL",
+    VIDEO: "LONG_VIDEO",
+  };
+
+  await prisma.portfolioItem.upsert({
+    where: { contentPieceId: piece.id },
+    update: {
+      title: piece.title,
+      externalUrl: piece.publishedUrl,
+      views: latest?.views ?? null,
+      isVerifiedByComa: true,
+    },
+    create: {
+      creatorId: creator.id,
+      title: piece.title,
+      description: piece.description,
+      format: formatMap[piece.type] ?? null,
+      brandName: piece.campaignCreator.campaign.client.name,
+      clientId: piece.campaignCreator.campaign.client.id,
+      contentPieceId: piece.id,
+      externalUrl: piece.publishedUrl,
+      views: latest?.views ?? null,
+      isVerifiedByComa: true,
+    },
+  });
+
+  await recomputeCreatorCompleteness(creator.id);
+  revalidatePath("/mi-espacio/perfil");
+}
+
 export async function submitForReview() {
   const creator = await requireCreator();
   const fresh = await prisma.creator.findUnique({ where: { id: creator.id } });

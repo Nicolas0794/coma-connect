@@ -39,7 +39,7 @@ async function main() {
   await step("3. Completitud inicial");
   let c = await prisma.creator.findUnique({
     where: { id: creator.id },
-    select: { profileCompleteness: true },
+    select: { profileCompleteness: true, profileStatus: true },
   });
   console.log(`  completeness: ${c?.profileCompleteness}%`);
 
@@ -59,7 +59,7 @@ async function main() {
   await recomputeCreatorCompleteness(creator.id);
   c = await prisma.creator.findUnique({
     where: { id: creator.id },
-    select: { profileCompleteness: true },
+    select: { profileCompleteness: true, profileStatus: true },
   });
   console.log(`  completeness: ${c?.profileCompleteness}%`);
 
@@ -77,7 +77,7 @@ async function main() {
   await recomputeCreatorCompleteness(creator.id);
   c = await prisma.creator.findUnique({
     where: { id: creator.id },
-    select: { profileCompleteness: true },
+    select: { profileCompleteness: true, profileStatus: true },
   });
   console.log(`  completeness: ${c?.profileCompleteness}%`);
 
@@ -94,7 +94,7 @@ async function main() {
   await recomputeCreatorCompleteness(creator.id);
   c = await prisma.creator.findUnique({
     where: { id: creator.id },
-    select: { profileCompleteness: true },
+    select: { profileCompleteness: true, profileStatus: true },
   });
   console.log(`  completeness: ${c?.profileCompleteness}%`);
 
@@ -113,7 +113,7 @@ async function main() {
   await recomputeCreatorCompleteness(creator.id);
   c = await prisma.creator.findUnique({
     where: { id: creator.id },
-    select: { profileCompleteness: true },
+    select: { profileCompleteness: true, profileStatus: true },
   });
   console.log(`  completeness: ${c?.profileCompleteness}%`);
 

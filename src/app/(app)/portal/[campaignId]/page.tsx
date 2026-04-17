@@ -8,6 +8,10 @@ import { VerifyButton } from "@/components/verify-button";
 import { notifyCreatorSelected, notifyCreatorVideoApproved, notifyCreatorChangesRequested } from "@/lib/notifications";
 import { getCreatorTiersBatch } from "@/lib/creator-report";
 import { TierBadge } from "@/components/tier-badge";
+import {
+  syncCreatorVerificationOnComplete,
+  upsertPublicReviewFromRating,
+} from "@/lib/creator-triggers";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "En producción",
@@ -135,14 +139,21 @@ async function closeCampaign(formData: FormData) {
     where: { id: campaignId, clientId: membership.clientId },
     data: { status: "COMPLETED" },
   });
-  // Marcar completados los CampaignCreator activos sin completedAt
-  await prisma.campaignCreator.updateMany({
+  // Capturar los CC que aún no están cerrados para disparar hooks sobre ellos.
+  const pending = await prisma.campaignCreator.findMany({
     where: {
       campaignId,
       status: { notIn: ["DECLINED", "REMOVED", "COMPLETED"] },
     },
+    select: { id: true },
+  });
+  await prisma.campaignCreator.updateMany({
+    where: { id: { in: pending.map((p) => p.id) } },
     data: { status: "COMPLETED", completedAt: now },
   });
+  for (const p of pending) {
+    await syncCreatorVerificationOnComplete(p.id);
+  }
   redirect(`/portal/${campaignId}`);
 }
 
@@ -180,6 +191,7 @@ async function rateCreator(formData: FormData) {
       ratedAt: new Date(),
     },
   });
+  await upsertPublicReviewFromRating(ccId);
   redirect(`/portal/${campaignId}`);
 }
 

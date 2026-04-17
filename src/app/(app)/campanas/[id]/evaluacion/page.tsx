@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { syncCreatorVerificationOnComplete } from "@/lib/creator-triggers";
 
 async function rateCreator(formData: FormData) {
   "use server";
@@ -21,6 +22,7 @@ async function rateCreator(formData: FormData) {
       where: { id: ccId },
       data: { status: "COMPLETED", completedAt: new Date(), notes },
     });
+    await syncCreatorVerificationOnComplete(ccId);
   }
 
   redirect(`/campanas/${campaignId}/evaluacion`);

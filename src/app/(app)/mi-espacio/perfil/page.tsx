@@ -18,6 +18,7 @@ import {
   addService,
   removeService,
   submitForReview,
+  promoteContentPieceToPortfolio,
 } from "./actions";
 
 const CREATOR_TYPES = [
@@ -74,6 +75,23 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
   if (!creator) {
     redirect("/mi-espacio");
   }
+
+  // Piezas reales publicadas que aún no están en el portafolio
+  const promotablePieces = await prisma.contentPiece.findMany({
+    where: {
+      status: "PUBLISHED",
+      portfolioItem: null,
+      campaignCreator: { creatorId: creator.id },
+    },
+    include: {
+      campaignCreator: {
+        select: { campaign: { select: { name: true, client: { select: { name: true } } } } },
+      },
+      metrics: { orderBy: { capturedAt: "desc" }, take: 1, select: { views: true } },
+    },
+    orderBy: { actualPublishDate: "desc" },
+    take: 10,
+  });
 
   const { error, sent } = await searchParams;
   const ig = creator.socialProfiles.find((s) => s.platform === "INSTAGRAM");
@@ -418,6 +436,38 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
           </form>
         </CardContent>
       </Card>
+
+      {/* Casos CoMa — promover entregables reales */}
+      {promotablePieces.length > 0 && (
+        <Card className="border-[#FF4B2C]/30">
+          <CardContent className="p-5">
+            <h2 className="font-semibold mb-1">Casos CoMa verificados</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Estas son piezas reales que ya publicaste en campañas de CoMa. Agregalas al
+              portafolio con un clic y aparecerán con badge <span className="font-semibold text-[#FF4B2C]">✓ CoMa</span>.
+            </p>
+            <ul className="space-y-2">
+              {promotablePieces.map((p) => (
+                <li key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{p.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {p.campaignCreator.campaign.client.name} · {p.campaignCreator.campaign.name}
+                      {p.metrics[0]?.views != null && ` · ${p.metrics[0].views.toLocaleString("es-CO")} views`}
+                    </p>
+                  </div>
+                  <form action={promoteContentPieceToPortfolio}>
+                    <input type="hidden" name="contentPieceId" value={p.id} />
+                    <Button type="submit" size="sm" variant="outline">
+                      Agregar al portafolio
+                    </Button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Servicios */}
       <Card>
