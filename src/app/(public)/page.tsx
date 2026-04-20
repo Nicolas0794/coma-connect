@@ -1,7 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import { CreativeBg } from "@/components/creative-bg";
 import { CreatorMarquee } from "@/components/creator-marquee";
 import { CreatorAvatarGrid, FloatingAvatars } from "@/components/creator-avatars";
@@ -12,12 +10,7 @@ export const metadata: Metadata = {
     "CoMa organiza la creatividad para convertirla en resultados medibles. Marcas, creadores, eventos y formación en una sola plataforma.",
 };
 
-export default async function HomePage() {
-  const session = await auth();
-  const role = session?.user?.role;
-  if (role === "ADMIN") redirect("/dashboard");
-  if (role === "CLIENT") redirect("/portal");
-  if (role === "CREATOR") redirect("/mi-espacio");
+export default function HomePage() {
   return (
     <>
       {/* HERO */}
