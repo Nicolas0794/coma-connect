@@ -20,8 +20,19 @@ export default async function PublicLayout({
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="font-semibold tracking-tight text-lg">
-            Co<span className="text-[#FF4B2C]">Ma</span>
+          <Link
+            href="/"
+            className="group font-semibold tracking-tight text-lg flex items-baseline whitespace-nowrap"
+            aria-label="CoMa — Community Marketing"
+          >
+            <span>Co</span>
+            <span className="inline-block overflow-hidden max-w-0 opacity-0 -translate-x-1 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 font-normal text-muted-foreground">
+              mmunity&nbsp;
+            </span>
+            <span className="text-[#FF4B2C]">Ma</span>
+            <span className="inline-block overflow-hidden max-w-0 opacity-0 -translate-x-1 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 font-normal text-[#FF4B2C]/70">
+              rketing
+            </span>
           </Link>
           <PublicNav user={user} />
         </div>
