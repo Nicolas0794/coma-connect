@@ -17,22 +17,49 @@ export async function recomputeCreatorRating(creatorId: string) {
 }
 
 // Hook: llamar cuando un CampaignCreator pasa a COMPLETED.
-// Setea Creator.comaVerifiedAt si todavía es null (primera campaña completada).
+// Setea Creator.comaVerifiedAt si todavía es null (primera campaña completada)
+// y registra un UserAchievement para el timeline unificado.
 export async function syncCreatorVerificationOnComplete(campaignCreatorId: string) {
   const cc = await prisma.campaignCreator.findUnique({
     where: { id: campaignCreatorId },
     select: {
       completedAt: true,
-      creator: { select: { id: true, comaVerifiedAt: true } },
+      creator: { select: { id: true, comaVerifiedAt: true, userId: true } },
+      campaign: { select: { name: true, code: true } },
     },
   });
   if (!cc || !cc.creator) return;
-  if (cc.creator.comaVerifiedAt) return;
 
-  await prisma.creator.update({
-    where: { id: cc.creator.id },
-    data: { comaVerifiedAt: cc.completedAt ?? new Date() },
-  });
+  if (!cc.creator.comaVerifiedAt) {
+    await prisma.creator.update({
+      where: { id: cc.creator.id },
+      data: { comaVerifiedAt: cc.completedAt ?? new Date() },
+    });
+  }
+
+  // Registrar achievement si el creador tiene User linkeado y no existe uno previo
+  if (cc.creator.userId) {
+    const existing = await prisma.userAchievement.findFirst({
+      where: {
+        userId: cc.creator.userId,
+        type: "CAMPAIGN_COMPLETED",
+        sourceId: campaignCreatorId,
+      },
+    });
+    if (!existing) {
+      await prisma.userAchievement.create({
+        data: {
+          userId: cc.creator.userId,
+          type: "CAMPAIGN_COMPLETED",
+          title: cc.campaign.name,
+          description: `Campaña ${cc.campaign.code} completada`,
+          emoji: "🎯",
+          sourceId: campaignCreatorId,
+          issuedAt: cc.completedAt ?? new Date(),
+        },
+      });
+    }
+  }
 }
 
 // Hook: llamar cuando un CampaignCreator recibe rating.

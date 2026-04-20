@@ -39,6 +39,19 @@ model User {
   savedCreators    SavedCreator[]
   profileViews     ProfileView[]
   inquiryMessages  InquiryMessage[]
+
+  // ── Academy ──
+  enrollments     CourseEnrollment[]
+  certificates    Certificate[]
+  creatorSkills   CreatorSkill[]
+
+  // ── Nation ──
+  eventsOrganized  Event[]             @relation("EventOrganizer")
+  eventSpeakerships EventSpeaker[]
+  eventRegistrations EventRegistration[]
+
+  // ── Crossover ──
+  achievements UserAchievement[]
 }
 
 model Account {
@@ -723,4 +736,297 @@ model ProfileView {
   viewer  User?   @relation(fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@index([creatorId, viewedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Academy — cursos, progreso, certificaciones, skills
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum SkillCategory {
+  STORYTELLING
+  PRODUCTION
+  EDITING
+  STRATEGY
+  BRAND
+  TECH
+  SOFT
+}
+
+model Skill {
+  id       String        @id @default(cuid())
+  name     String        @unique
+  slug     String        @unique
+  category SkillCategory
+  createdAt DateTime     @default(now())
+
+  courses        CourseSkill[]
+  creatorSkills  CreatorSkill[]
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  summary     String?
+  description String?
+  coverUrl    String?
+  level       CourseLevel  @default(BEGINNER)
+  status      CourseStatus @default(DRAFT)
+  durationMin Int?
+  priceCOP    Decimal?     @db.Decimal(14, 2)
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  modules     CourseModule[]
+  enrollments CourseEnrollment[]
+  skills      CourseSkill[]
+
+  @@index([status, publishedAt])
+}
+
+model CourseModule {
+  id       String  @id @default(cuid())
+  courseId String
+  title    String
+  summary  String?
+  order    Int     @default(0)
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId, order])
+}
+
+model Lesson {
+  id          String  @id @default(cuid())
+  moduleId    String
+  title       String
+  videoUrl    String?
+  bodyMd      String?
+  durationMin Int?
+  order       Int     @default(0)
+
+  module   CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@index([moduleId, order])
+}
+
+model CourseSkill {
+  id       String @id @default(cuid())
+  courseId String
+  skillId  String
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, skillId])
+}
+
+model CourseEnrollment {
+  id          String           @id @default(cuid())
+  userId      String
+  courseId    String
+  status      EnrollmentStatus @default(ENROLLED)
+  progressPct Int              @default(0)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonProgress LessonProgress[]
+  certificate  Certificate?
+
+  @@unique([userId, courseId])
+  @@index([userId, status])
+}
+
+model LessonProgress {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  completedAt  DateTime @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+}
+
+model Certificate {
+  id              String   @id @default(cuid())
+  enrollmentId    String   @unique
+  userId          String
+  certificateUrl  String?
+  skillsEarned    String[] @default([])
+  issuedAt        DateTime @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+}
+
+// Skill declarada por la creadora (auto-reportada, no ganada)
+model CreatorSkill {
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  level     Int      @default(1) // 1-5 self-reported
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nation — eventos, asistencia, networking
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EventType {
+  MEETUP
+  WORKSHOP
+  PANEL
+  PARTY
+  CONFERENCE
+  WEBINAR
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITLIST
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+enum SpeakerRole {
+  SPEAKER
+  PANELIST
+  HOST
+  SPECIAL_GUEST
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String?
+  type        EventType   @default(MEETUP)
+  city        String?
+  venue       String?
+  startAt     DateTime
+  endAt       DateTime?
+  capacity    Int?
+  coverUrl    String?
+  status      EventStatus @default(DRAFT)
+  organizerId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  organizer     User?               @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  speakers      EventSpeaker[]
+  registrations EventRegistration[]
+  tags          EventTag[]
+
+  @@index([status, startAt])
+  @@index([city, startAt])
+}
+
+model EventSpeaker {
+  id      String      @id @default(cuid())
+  eventId String
+  userId  String
+  role    SpeakerRole @default(SPEAKER)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model EventRegistration {
+  id             String             @id @default(cuid())
+  eventId        String
+  userId         String
+  status         RegistrationStatus @default(REGISTERED)
+  registeredAt   DateTime           @default(now())
+  attendedAt     DateTime?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, status])
+}
+
+model EventTag {
+  id      String @id @default(cuid())
+  eventId String
+  tag     String
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, tag])
+  @@index([tag])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Crossover — timeline unificado de logros del usuario
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AchievementType {
+  CAMPAIGN_COMPLETED
+  COURSE_COMPLETED
+  EVENT_ATTENDED
+  EVENT_SPEAKER
+  CERTIFICATE_EARNED
+  BADGE_EARNED
+}
+
+model UserAchievement {
+  id          String          @id @default(cuid())
+  userId      String
+  type        AchievementType
+  title       String
+  description String?
+  emoji       String?
+  sourceId    String?         // id de Campaign, Course, Event, etc.
+  linkUrl     String?
+  isPublic    Boolean         @default(true)
+  issuedAt    DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+  @@index([userId, type])
 }
