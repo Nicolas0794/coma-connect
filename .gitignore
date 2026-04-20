@@ -36,8 +36,9 @@ yarn-error.log*
 # credentials (NEVER commit)
 google-credentials.json
 
-# brand assets (heavy files, stored locally)
-/brand/
+# brand assets (heavy files, stored locally) — excepto documentos .md de marca
+/brand/*
+!/brand/*.md
 
 # vercel
 .vercel
