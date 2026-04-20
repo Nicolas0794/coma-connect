@@ -15,6 +15,8 @@ import {
   Sparkles,
   Users,
   BarChart3,
+  GraduationCap,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +39,8 @@ const adminLinks: NavLink[] = [
   { href: "/clientes", label: "Clientes", icon: Building2 },
   { href: "/creadores", label: "Creadores", icon: Palette },
   { href: "/campanas", label: "Campañas", icon: Megaphone },
+  { href: "/academia", label: "Academy", icon: GraduationCap },
+  { href: "/eventos", label: "Nation", icon: CalendarDays },
 ];
 
 const adminTools: NavLink[] = [
@@ -50,11 +54,15 @@ const clientLinks: NavLink[] = [
   { href: "/portal/reporte", label: "Reporte", icon: BarChart3 },
   { href: "/portal/creadores", label: "Mi comunidad", icon: Users },
   { href: "/portal/nueva-campana", label: "Nueva campaña", icon: Sparkles },
+  { href: "/academy", label: "Academy", icon: GraduationCap },
+  { href: "/nation", label: "Nation", icon: CalendarDays },
 ];
 
 const creatorLinks: NavLink[] = [
   { href: "/mi-espacio", label: "Mi espacio", icon: Film, exact: true },
   { href: "/mi-espacio/documentos", label: "Mis documentos", icon: FileText },
+  { href: "/mi-espacio/academia", label: "Mi academia", icon: GraduationCap },
+  { href: "/mi-espacio/eventos", label: "Mis eventos", icon: CalendarDays },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -134,7 +142,7 @@ export function Sidebar({ role, userName, userEmail, unreadCount }: SidebarProps
 
       {/* Logo */}
       <div className="relative px-5 pt-5 pb-4">
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/dashboard" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-white.svg" alt="CoMa Connect" className="h-[22px] w-auto" />
         </Link>

@@ -2,7 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { prisma } from "@/lib/prisma";
 import { searchPublicCreators, type SortKey } from "@/lib/public-creator";
+import { CrossNav } from "@/components/cross-nav";
 
 export const metadata: Metadata = {
   title: "Explorar talento — CoMa Connect",
@@ -20,6 +22,9 @@ type SearchParams = Promise<{
   verificados?: string;
   seguidores?: string;
   rating?: string;
+  skill?: string;
+  academy?: string;
+  speaker?: string;
   orden?: string;
   page?: string;
 }>;
@@ -83,10 +88,16 @@ export default async function TalentoPage({
     verifiedOnly: p.verificados === "1",
     minFollowers: minFollowersNum > 0 ? minFollowersNum : undefined,
     minRating: minRating > 0 ? minRating : undefined,
+    skillSlug: p.skill?.trim() || undefined,
+    academyOnly: p.academy === "1",
+    speakerOnly: p.speaker === "1",
     sort,
     limit: PAGE_SIZE,
     offset: (page - 1) * PAGE_SIZE,
   });
+
+  const allSkills = await prisma.skill.findMany({ orderBy: { name: "asc" } });
+  const selectedSkill = p.skill ? allSkills.find((s) => s.slug === p.skill) : null;
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -99,6 +110,9 @@ export default async function TalentoPage({
   if (p.verificados === "1") activeFilters.push("Verificados");
   if (minFollowersNum > 0) activeFilters.push(`${minFollowersNum.toLocaleString("es-CO")}+ seguidores`);
   if (minRating > 0) activeFilters.push(`${minRating}⭐+`);
+  if (selectedSkill) activeFilters.push(`Skill: ${selectedSkill.name}`);
+  if (p.academy === "1") activeFilters.push("Con Academy 🏅");
+  if (p.speaker === "1") activeFilters.push("Speaker Nation ⭐");
 
   // Para paginación: preservar los filtros actuales
   const buildPageUrl = (newPage: number) => {
@@ -111,17 +125,116 @@ export default async function TalentoPage({
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-6 py-10">
-      {/* Hero */}
-      <div className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-semibold tracking-tight">
-          Encuentra el <span className="text-[#FF4B2C]">creador</span> perfecto
-        </h1>
-        <p className="mt-3 text-lg text-muted-foreground max-w-2xl">
-          Red profesional de creadores verificados en LATAM. Portafolios reales,
-          reputación respaldada por campañas ejecutadas.
-        </p>
+    <div>
+      {/* Hero enriquecido */}
+      <section className="border-b border-border bg-gradient-to-br from-[#FF4B2C]/5 via-transparent to-[#B0E4EA]/10">
+        <div className="mx-auto max-w-7xl px-6 py-16">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-3">
+            CoMa Connect · Campañas end-to-end
+          </p>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight max-w-4xl">
+            Donde la <span className="text-[#FF4B2C]">creatividad</span> se vuelve sistema.
+          </h1>
+          <p className="mt-5 text-lg md:text-xl text-muted-foreground max-w-3xl leading-relaxed">
+            Connect es el motor operativo del ecosistema: una red profesional de creadores
+            verificados con portafolios reales y reputación construida campaña a campaña.
+            Así trabajan las marcas que entienden que el contenido ya no se produce — se cultiva.
+          </p>
+        </div>
+      </section>
+
+      {/* Para quién y para qué */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-6 py-14">
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-border bg-card p-7">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="h-8 w-8 rounded-lg bg-[#FF4B2C]/10 flex items-center justify-center text-sm">💼</span>
+                <p className="text-xs uppercase tracking-widest text-[#FF4B2C] font-semibold">Para marcas</p>
+              </div>
+              <h2 className="text-2xl font-bold mb-3">Selección inteligente, no por vanidad.</h2>
+              <ul className="space-y-2.5 text-sm text-foreground">
+                <li className="flex gap-2"><span className="text-[#FF4B2C]">→</span><span><strong>Afinidad real</strong>, no solo seguidores. Filtrá por nicho, formato, ciudad, skills y rating de campañas anteriores.</span></li>
+                <li className="flex gap-2"><span className="text-[#FF4B2C]">→</span><span><strong>Portafolios verificados</strong> con KPIs reales de campañas ejecutadas en CoMa.</span></li>
+                <li className="flex gap-2"><span className="text-[#FF4B2C]">→</span><span><strong>Creator Score público</strong> que refleja rapidez, calidad, cumplimiento y ventas atribuidas.</span></li>
+                <li className="flex gap-2"><span className="text-[#FF4B2C]">→</span><span><strong>Inquiry directa</strong> — envías brief, recibes cotización, convertís a campaña sin salir de la plataforma.</span></li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border border-border bg-card p-7">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="h-8 w-8 rounded-lg bg-[#B0E4EA]/40 flex items-center justify-center text-sm">🎨</span>
+                <p className="text-xs uppercase tracking-widest text-teal-700 font-semibold">Para creadores</p>
+              </div>
+              <h2 className="text-2xl font-bold mb-3">Tu carrera, visible y respaldada.</h2>
+              <ul className="space-y-2.5 text-sm text-foreground">
+                <li className="flex gap-2"><span className="text-teal-600">→</span><span><strong>Campañas reales llegan a ti</strong> — no DMs, no audios, no renegociaciones.</span></li>
+                <li className="flex gap-2"><span className="text-teal-600">→</span><span><strong>Perfil profesional</strong> con historial, KPIs, certificaciones Academy y badges de Nation.</span></li>
+                <li className="flex gap-2"><span className="text-teal-600">→</span><span><strong>Verificación automática</strong> de seguidores IG/TikTok y publicaciones — tu número vale.</span></li>
+                <li className="flex gap-2"><span className="text-teal-600">→</span><span><strong>Pagos estructurados</strong> con cuenta de cobro auto-generada y plazo garantizado.</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Cómo mide — puente al método */}
+      <section className="border-b border-border bg-muted/20">
+        <div className="mx-auto max-w-7xl px-6 py-14">
+          <div className="grid md:grid-cols-[1fr_1.2fr] gap-10 items-center">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-3">El método CoMa</p>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4 leading-tight">
+                No todos los creadores son iguales. Aquí se ve.
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-5">
+                CoMa Connect no es un directorio. Es un sistema que mide, clasifica y premia
+                el trabajo bien hecho. Cada campaña suma XP, cada entrega a tiempo construye
+                reputación, cada resultado deja huella visible.
+              </p>
+              <Link
+                href="/metodo"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[#FF4B2C] hover:underline"
+              >
+                Ver cómo funciona el sistema de niveles →
+              </Link>
+            </div>
+            <div className="grid grid-cols-5 gap-2">
+              {[
+                { label: "Rookie", color: "bg-[#F4D79D]/60" },
+                { label: "Creator", color: "bg-[#B0E4EA]/60" },
+                { label: "Pro", color: "bg-[#D6E889]/60" },
+                { label: "Elite", color: "bg-[#FF4B2C]/40" },
+                { label: "Legend", color: "bg-foreground" },
+              ].map((lvl, i) => (
+                <div
+                  key={lvl.label}
+                  className={`rounded-xl p-4 text-center ${lvl.color} ${i === 4 ? "text-background" : "text-foreground"}`}
+                >
+                  <p className="text-[10px] uppercase tracking-widest opacity-70">Nivel {i + 1}</p>
+                  <p className="font-bold mt-1">{lvl.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Listing header */}
+      <div className="mx-auto max-w-7xl px-6 pt-10">
+        <div className="mb-8">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-semibold mb-2">
+            Explorar la red
+          </p>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Encuentra el <span className="text-[#FF4B2C]">creador</span> perfecto.
+          </h2>
+          <p className="mt-2 text-muted-foreground max-w-2xl">
+            Filtrá por nicho, ciudad, formato, skill o rating. Todos los perfiles están verificados.
+          </p>
+        </div>
       </div>
+
+      <div className="mx-auto max-w-7xl px-6 pb-14">
 
       <div className="grid lg:grid-cols-[260px_1fr] gap-8">
         {/* Sidebar de filtros */}
@@ -226,15 +339,53 @@ export default async function TalentoPage({
               </select>
             </div>
 
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                name="verificados"
-                value="1"
-                defaultChecked={p.verificados === "1"}
-              />
-              Solo verificados ✓
-            </label>
+            <div>
+              <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground block mb-2">
+                Skill
+              </label>
+              <select
+                name="skill"
+                defaultValue={p.skill ?? ""}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Cualquiera</option>
+                {allSkills.map((s) => (
+                  <option key={s.id} value={s.slug}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="verificados"
+                  value="1"
+                  defaultChecked={p.verificados === "1"}
+                />
+                Solo verificados ✓
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="academy"
+                  value="1"
+                  defaultChecked={p.academy === "1"}
+                />
+                Con certificación Academy 🏅
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="speaker"
+                  value="1"
+                  defaultChecked={p.speaker === "1"}
+                />
+                Speaker Nation ⭐
+              </label>
+            </div>
 
             <button
               type="submit"
@@ -386,6 +537,8 @@ export default async function TalentoPage({
           )}
         </section>
       </div>
+      </div>
+      <CrossNav current="connect" />
     </div>
   );
 }

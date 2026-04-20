@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PublicNav } from "@/components/public-nav";
 
 export default function PublicLayout({
   children,
@@ -9,20 +10,10 @@ export default function PublicLayout({
     <div className="min-h-screen bg-background flex flex-col">
       <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur">
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
-          <Link href="/talento" className="font-semibold tracking-tight text-lg">
-            CoMa <span className="text-[#FF4B2C]">Connect</span>
+          <Link href="/" className="font-semibold tracking-tight text-lg">
+            Co<span className="text-[#FF4B2C]">Ma</span>
           </Link>
-          <nav className="flex items-center gap-6 text-sm">
-            <Link href="/talento" className="text-muted-foreground hover:text-foreground">
-              Explorar talento
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-full bg-foreground px-4 py-1.5 text-background hover:opacity-90"
-            >
-              Iniciar sesión
-            </Link>
-          </nav>
+          <PublicNav />
         </div>
       </header>
       <main className="flex-1">{children}</main>

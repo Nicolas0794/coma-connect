@@ -99,6 +99,12 @@ export default async function PublicCreatorPage({
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
+      <Link
+        href="/talento"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
+      >
+        ← Volver a Talento
+      </Link>
       {/* Header del perfil */}
       <div className="flex flex-col md:flex-row items-start gap-6 pb-8 border-b border-border">
         <div className="shrink-0">
@@ -322,6 +328,118 @@ export default async function PublicCreatorPage({
               </Card>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Skills */}
+      {creator.user && creator.user.creatorSkills.length > 0 && (
+        <section className="py-8 border-b border-border">
+          <h2 className="text-xl font-semibold mb-3">Habilidades</h2>
+          <div className="flex flex-wrap gap-2">
+            {creator.user.creatorSkills.map((cs) => (
+              <span
+                key={cs.id}
+                className="inline-flex items-center gap-2 rounded-full bg-card border border-border px-3 py-1.5 text-sm"
+              >
+                {cs.skill.name}
+                <span className="text-xs text-muted-foreground">{cs.level}/5</span>
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Certificados Academy */}
+      {creator.user && creator.user.certificates.length > 0 && (
+        <section className="py-8 border-b border-border">
+          <h2 className="text-xl font-semibold mb-4">🏅 Certificaciones CoMa Academy</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            {creator.user.certificates.map((cert) => (
+              <Link
+                key={cert.id}
+                href={`/academy/${cert.enrollment.course.slug}`}
+                className="rounded-xl border border-border bg-gradient-to-br from-[#FF4B2C]/5 to-background p-4 hover:shadow-md transition-all"
+              >
+                <p className="text-[10px] text-primary font-semibold uppercase mb-1">
+                  Certificación
+                </p>
+                <h3 className="font-medium text-foreground">
+                  {cert.enrollment.course.title}
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {new Date(cert.issuedAt).toLocaleDateString("es-CO")}
+                </p>
+                {cert.skillsEarned.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {cert.skillsEarned.map((s) => (
+                      <Badge key={s} variant="secondary" className="text-[10px]">
+                        {s}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Eventos Nation como speaker */}
+      {creator.user && creator.user.eventSpeakerships.length > 0 && (
+        <section className="py-8 border-b border-border">
+          <h2 className="text-xl font-semibold mb-4">⭐ CoMa Nation</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            {creator.user.eventSpeakerships.map((sp) => (
+              <Link
+                key={sp.id}
+                href={`/nation/${sp.event.slug}`}
+                className="rounded-xl border border-border bg-card p-4 hover:shadow-md transition-all"
+              >
+                <p className="text-[10px] text-primary font-semibold uppercase mb-1">
+                  {sp.role === "HOST"
+                    ? "Host"
+                    : sp.role === "PANELIST"
+                    ? "Panelista"
+                    : sp.role === "SPECIAL_GUEST"
+                    ? "Invitado especial"
+                    : "Speaker"}
+                </p>
+                <h3 className="font-medium text-foreground">{sp.event.name}</h3>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {new Date(sp.event.startAt).toLocaleDateString("es-CO")}
+                  {sp.event.city ? ` · ${sp.event.city}` : ""}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Timeline de logros */}
+      {creator.user && creator.user.achievements.length > 0 && (
+        <section className="py-8 border-b border-border">
+          <h2 className="text-xl font-semibold mb-4">Trayectoria</h2>
+          <ol className="relative border-l border-border ml-4 space-y-4">
+            {creator.user.achievements.map((a) => (
+              <li key={a.id} className="ml-4">
+                <div className="absolute -left-[9px] flex size-4 items-center justify-center rounded-full bg-card border border-border text-xs">
+                  {a.emoji ?? "•"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">{a.title}</p>
+                  <span className="text-[11px] text-muted-foreground">
+                    {new Date(a.issuedAt).toLocaleDateString("es-CO", {
+                      month: "short",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
+                {a.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{a.description}</p>
+                )}
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 

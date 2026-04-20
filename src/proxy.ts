@@ -13,12 +13,24 @@ const publicPrefixes = [
   "/talento",
   "/c/",
   "/@",
+  "/academy",
+  "/nation",
+  "/metodo",
   "/sitemap.xml",
   "/robots.txt",
 ];
 
 function isPublicPath(pathname: string): boolean {
-  if (pathname === "/c" || pathname === "/talento") return true;
+  if (
+    pathname === "/" ||
+    pathname === "/c" ||
+    pathname === "/talento" ||
+    pathname === "/academy" ||
+    pathname === "/nation" ||
+    pathname === "/metodo"
+  ) {
+    return true;
+  }
   return publicPrefixes.some((prefix) => pathname.startsWith(prefix));
 }
 
