@@ -103,7 +103,7 @@ Esto no es una herramienta. Es el nuevo piso desde donde todos salimos a crecer.
 
 ## 4. Landing — copy completo
 
-> **Nota crítica:** la sección del *programa actual de creadores* dentro de esta landing requiere el contenido de la landing existente. No lo invento. Nico debe pasar URL/copies/activos antes de finalizar esa sección (marcada abajo como **§ Programa Creadores (pendiente)**).
+> **Nota:** la sección 8 (CoMa Academy) replica fielmente el programa actual en `comabrandlovers.co/academy-1`. Cualquier cambio futuro al programa debe actualizarse tanto aquí como en memoria (`project_coma_academy_current.md`).
 
 ### Hero
 
