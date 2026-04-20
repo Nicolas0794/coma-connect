@@ -186,9 +186,49 @@ Cada campaña suma XP. Cada curso desbloquea skills. Cada entrega a tiempo const
 
 > *Jugar en serio. Crecer en serio.*
 
-### Sección 8 — § Programa Creadores (PENDIENTE)
+### Sección 8 — CoMa Academy (programa actual)
 
-**⚠️ Contenido pendiente.** Antes de publicar esta sección, Nico debe pasar la landing actual del programa de creadores de CoMa (URL, copies, estructura, activos). No se inventará el contenido. Ver `memory/feedback_existing_landing.md`.
+> *Replica fiel del programa en producción en comabrandlovers.co/academy-1, alineado al ecosistema CoMa.*
+
+**H2:** Forma creadores que viven de lo que crean.
+
+**Sub:** 6 cursos certificados, metodología híbrida, asistente IA 24/7 vía WhatsApp y una ruta clara de Rookie a profesional del contenido.
+
+**Los 6 cursos certificados — 1 mes cada uno, 20 cápsulas, 2 talleres creativos por mes:**
+
+| # | Curso | Certificación | Master |
+|---|-------|---------------|--------|
+| 1 | Storytelling, narrativa y responsabilidad social | Brand Storyteller | Isa Contreras — @isabellacontrerast |
+| 2 | Gestión de redes sociales | Gestión en redes sociales | Eli Hernandez — @elihernandez10 |
+| 3 | Estrategia de marketing digital | Estratega en marketing digital | Manu Martinez — @manuelamv1 |
+| 4 | IA para creadores de contenido | IA en creación de contenido | Edward Smith — @edwardsmith |
+| 5 | Edición, producción y postproducción | Producción y Edición de Contenido Audiovisual | Invitado especial |
+| 6 | Finanzas para creadores y gestión de marcas | Finanzas en creación de contenido | Team CoMa |
+
+**Al completar los 6 cursos:** certificación oficial **Creador de Contenido UGC** con resolución de la **Secretaría de Educación de Cali**. Cada curso completado entrega microcertificado.
+
+**Por qué es distinto:**
+
+- 🔥 **100% híbrido** — avanza a tu ritmo desde WhatsApp o web, sin descargar apps.
+- ⭐ **Guiado por creadoras reales** — las que ya viven de esto, no teóricos.
+- 🤖 **CoMa IA — tu coach 24/7** — analiza tu perfil de Instagram + cuestionario inicial y genera un asistente con 25+ variables únicas: tu tono, estilo, formato, temas. Escribe contigo. Resuelve dudas del programa. Todo por WhatsApp.
+- 🧪 **Talleres prácticos presenciales** — 2 sábados/mes para afiliados Comfandi seleccionados, en instalaciones del programa en Cali.
+- 💰 **Monetización desde el primer mes** — aplicas lo aprendido con marcas reales mientras estudias.
+- 🎓 **Compra 1, varios o el pack completo** con descuento.
+
+**Subsidio Comfandi — 100% gratis para seleccionados:**
+
+Si eres afiliado o beneficiario Comfandi categorías A, B o C y pasas el proceso de selección, el programa es completamente subsidiado. Cupos limitados.
+
+*Proceso de selección:* afiliación Comfandi A/B/C → cuenta IG activa con ≥3 Reels último mes → experiencia previa en UGC (prioridad) → Reel de prueba si hay alto volumen → evaluación psicológica virtual (resiliencia, compromiso, motivación).
+
+**Comunidad viva — CoMa Nation para estudiantes y egresados:**
+meetups, eventos de entretenimiento, cocreaciones, retos digitales, evento anual exclusivo para creadores.
+
+**Premios e incentivos — CoMaCoins:**
+La moneda interna del programa. La ganas por desempeño. Desbloquea premios, bonos y beneficios exclusivos.
+
+**CTA:** *Postúlate ahora* → [formulario actual]
 
 ### Sección 9 — Social proof
 
@@ -309,9 +349,10 @@ Una frase. Tres verdades:
 5. Views / engagement / ventas atribuidas.
 6. Fecha de fundación/inicio operativo.
 7. MRR, revenue o proyecciones si aplica (inversionistas).
-8. Landing actual del programa de creadores — URL, copies, estructura, activos.
+8. ~~Landing actual del programa de creadores~~ ✅ resuelto: `comabrandlovers.co/academy-1` — integrada en §8.
 9. Logos autorizados de clientes para mostrar.
 10. Testimoniales reales (creadores + marcas) si existen.
+11. Número de estudiantes/egresados del programa Academy actual + resultados (certificados entregados, campañas conseguidas, ingresos generados por egresados).
 
 ### Datos de mercado a verificar antes de publicación
 - Cifra exacta LATAM de creator economy (hoy solo tenemos global).
