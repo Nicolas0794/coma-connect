@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { prisma } from "@/lib/prisma";
 import { searchPublicCreators, type SortKey } from "@/lib/public-creator";
 import { CrossNav } from "@/components/cross-nav";
+import { CreativeBg } from "@/components/creative-bg";
 
 export const metadata: Metadata = {
   title: "Explorar talento — CoMa Connect",
@@ -127,8 +128,9 @@ export default async function TalentoPage({
   return (
     <div>
       {/* Hero enriquecido */}
-      <section className="border-b border-border bg-gradient-to-br from-[#FF4B2C]/5 via-transparent to-[#B0E4EA]/10">
-        <div className="mx-auto max-w-7xl px-6 py-16">
+      <section className="relative overflow-hidden border-b border-border bg-grain">
+        <CreativeBg variant="warm" />
+        <div className="mx-auto max-w-7xl px-6 py-16 relative">
           <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-3">
             CoMa Connect · Campañas end-to-end
           </p>

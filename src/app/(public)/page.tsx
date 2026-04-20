@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
+import { CreativeBg } from "@/components/creative-bg";
+import { CreatorMarquee } from "@/components/creator-marquee";
 
 export const metadata: Metadata = {
   title: "CoMa — El sistema operativo de la creator economy",
@@ -18,10 +20,14 @@ export default async function HomePage() {
   return (
     <>
       {/* HERO */}
-      <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#FF4B2C]/5 via-transparent to-[#B0E4EA]/20 pointer-events-none" />
+      <section className="relative overflow-hidden border-b border-border bg-grain">
+        <CreativeBg variant="default" />
         <div className="mx-auto max-w-6xl px-6 py-24 md:py-32 relative">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-4 inline-flex items-center gap-2">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FF4B2C] opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#FF4B2C]" />
+            </span>
             Creator economy · LATAM
           </p>
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-foreground leading-[1.05] mb-6 max-w-4xl">
@@ -34,7 +40,7 @@ export default async function HomePage() {
           <div className="flex flex-wrap gap-3">
             <Link
               href="/register?role=brand"
-              className="rounded-full bg-[#FF4B2C] text-white px-7 py-3 font-medium hover:opacity-90 transition"
+              className="relative rounded-full bg-[#FF4B2C] text-white px-7 py-3 font-medium hover:opacity-90 transition animate-pulse-ring"
             >
               Soy marca →
             </Link>
@@ -46,13 +52,16 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/talento"
-              className="rounded-full border border-border px-7 py-3 font-medium hover:bg-muted transition"
+              className="rounded-full border border-border bg-background/60 backdrop-blur px-7 py-3 font-medium hover:bg-muted transition"
             >
               Explorar talento
             </Link>
           </div>
         </div>
       </section>
+
+      {/* MARQUEE de tags creativos */}
+      <CreatorMarquee />
 
       {/* PROBLEMA */}
       <section className="border-b border-border bg-muted/30">
@@ -100,7 +109,7 @@ export default async function HomePage() {
           <div className="grid md:grid-cols-3 gap-6">
             <Link
               href="/talento"
-              className="group rounded-3xl border border-border bg-card p-8 hover:shadow-xl hover:-translate-y-1 transition-all"
+              className="group card-interactive rounded-3xl border border-border bg-card p-8"
             >
               <div className="h-14 w-14 rounded-2xl bg-[#FF4B2C]/10 flex items-center justify-center mb-5 text-2xl">
                 🎯
@@ -119,7 +128,7 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/nation"
-              className="group rounded-3xl border border-border bg-card p-8 hover:shadow-xl hover:-translate-y-1 transition-all"
+              className="group card-interactive rounded-3xl border border-border bg-card p-8"
             >
               <div className="h-14 w-14 rounded-2xl bg-[#B0E4EA]/40 flex items-center justify-center mb-5 text-2xl">
                 🎤
@@ -138,7 +147,7 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/academy"
-              className="group rounded-3xl border border-border bg-card p-8 hover:shadow-xl hover:-translate-y-1 transition-all"
+              className="group card-interactive rounded-3xl border border-border bg-card p-8"
             >
               <div className="h-14 w-14 rounded-2xl bg-[#F4D79D]/40 flex items-center justify-center mb-5 text-2xl">
                 🎓
