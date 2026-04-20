@@ -8,7 +8,9 @@ import { notifyClientVideoReady, notifyTeamPublicationConfirmed } from "@/lib/no
 import { VideoUploadForm } from "@/components/video-upload-form";
 import { getCreatorReport, TIER_META } from "@/lib/creator-report";
 import { CreatorGamification } from "@/components/creator-gamification";
-import { computeXp } from "@/lib/creator-level";
+import { computeXp, levelForXp } from "@/lib/creator-level";
+import { AvatarStudio } from "@/components/avatar-studio";
+import { CreatorMissions, type Mission } from "@/components/creator-missions";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "Pendiente",
@@ -191,6 +193,78 @@ export default async function CreatorSpacePage() {
     eventsAttended,
   });
   const creatorScoreNorm = Math.min(100, Math.round(((report?.score ?? 0) / 1500) * 100));
+  const level = levelForXp(xp);
+
+  // Misiones computadas dinámicamente desde el estado real
+  const availableCount = await prisma.campaign.count({
+    where: { status: { in: ["DRAFT", "ACTIVE"] } },
+  });
+  const publishedCourses = await prisma.course.count({ where: { status: "PUBLISHED" } });
+  const upcomingEvents = await prisma.event.count({
+    where: { status: "PUBLISHED", startAt: { gte: new Date() } },
+  });
+  const profileIncomplete = creator.profileCompleteness < 100;
+
+  const missions: Mission[] = [
+    ...(profileIncomplete
+      ? [{
+          key: "profile",
+          title: "Completá tu perfil Connect",
+          desc: `Tu perfil está en ${creator.profileCompleteness}%. Un perfil completo aparece más arriba en el discovery de marcas.`,
+          xp: 300,
+          href: "/mi-espacio/perfil",
+          cta: "Ir al editor",
+          icon: "🎨",
+          tone: "primary" as const,
+        }]
+      : []),
+    ...(availableCount > 0
+      ? [{
+          key: "apply",
+          title: "Postulate a una campaña disponible",
+          desc: `Hay ${availableCount} campañas abiertas buscando creadoras. Una postulación aceptada suma XP y puede desbloquear tu siguiente nivel.`,
+          xp: 150,
+          href: "#campanas-disponibles",
+          cta: "Ver campañas",
+          icon: "🎯",
+          tone: "primary" as const,
+        }]
+      : []),
+    ...(publishedCourses > 0
+      ? [{
+          key: "course",
+          title: "Empezá tu primer curso Academy",
+          desc: `${publishedCourses} cursos publicados. Cada microcertificado suma +400 XP y desbloquea filtros en Connect.`,
+          xp: 400,
+          href: "/mi-espacio/academia",
+          cta: "Ver catálogo",
+          icon: "🎓",
+          tone: "yellow" as const,
+        }]
+      : []),
+    ...(upcomingEvents > 0
+      ? [{
+          key: "event",
+          title: "Reservá tu lugar en un evento Nation",
+          desc: `${upcomingEvents} eventos próximos. La comunidad se construye en persona — y suma XP.`,
+          xp: 100,
+          href: "/mi-espacio/eventos",
+          cta: "Ver calendario",
+          icon: "🎤",
+          tone: "teal" as const,
+        }]
+      : []),
+    {
+      key: "verify",
+      title: "Verificá tu Instagram",
+      desc: "Conectá tu IG y convertí seguidores en número oficial en tu perfil. Las marcas filtran por verificación.",
+      xp: 200,
+      href: "/mi-espacio/perfil",
+      cta: "Conectar IG",
+      icon: "✓",
+      tone: "lime" as const,
+    },
+  ];
 
   // Campañas donde ya participa
   const myCampaigns = await prisma.campaignCreator.findMany({
@@ -272,6 +346,15 @@ export default async function CreatorSpacePage() {
           eventsAttended,
         }}
       />
+
+      {/* Avatar Studio interactivo */}
+      <AvatarStudio
+        seed={creator.artistName || creator.fullName || session.user.email || "creator"}
+        currentLevel={level.key}
+      />
+
+      {/* Misiones para ganar XP */}
+      <CreatorMissions missions={missions} />
 
       {/* Perfil público Connect */}
       <div className="mb-8 rounded-xl border border-border bg-card p-5">
