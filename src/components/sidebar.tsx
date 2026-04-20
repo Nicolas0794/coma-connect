@@ -178,6 +178,32 @@ export function Sidebar({ role, userName, userEmail, unreadCount }: SidebarProps
             </div>
           </div>
         )}
+
+        {/* Acceso a la web pública — para cualquier rol */}
+        <div className="mt-6">
+          <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-stone-600">
+            Web pública
+          </p>
+          <Link
+            href="/"
+            className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-stone-400 hover:text-white hover:bg-white/[0.06] transition-all"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="shrink-0 text-stone-500 group-hover:text-stone-200"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" />
+            </svg>
+            <span className="flex-1 truncate">Ver web pública</span>
+            <span className="text-[10px] text-stone-600 group-hover:text-stone-400">↗</span>
+          </Link>
+        </div>
       </nav>
 
       {/* User profile */}
