@@ -26,12 +26,12 @@ export default async function PublicLayout({
             aria-label="CoMa — Community Marketing"
           >
             <span>Co</span>
-            <span className="inline-block overflow-hidden max-w-0 opacity-0 -translate-x-1 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 font-normal text-muted-foreground">
-              mmunity&nbsp;
+            <span className="inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 font-normal text-muted-foreground">
+              (Community)
             </span>
             <span className="text-[#FF4B2C]">Ma</span>
-            <span className="inline-block overflow-hidden max-w-0 opacity-0 -translate-x-1 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 group-hover:translate-x-0 font-normal text-[#FF4B2C]/70">
-              rketing
+            <span className="inline-block overflow-hidden max-w-0 opacity-0 transition-all duration-500 ease-out group-hover:max-w-[160px] group-hover:opacity-100 font-normal text-[#FF4B2C]/70">
+              (Marketing)
             </span>
           </Link>
           <PublicNav user={user} />
