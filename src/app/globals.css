@@ -217,6 +217,12 @@
   50% { opacity: 1; transform: scale(1.15) rotate(180deg); }
 }
 
+@keyframes scanline {
+  0% { top: 0%; opacity: 0.9; }
+  50% { opacity: 0.4; }
+  100% { top: 100%; opacity: 0.9; }
+}
+
 .animate-blob { animation: blob-float 18s ease-in-out infinite; }
 .animate-blob-slow { animation: blob-float-slow 26s ease-in-out infinite; }
 .animate-wiggle { animation: wiggle 4s ease-in-out infinite; }
