@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { notifyClientVideoReady, notifyTeamPublicationConfirmed } from "@/lib/notifications";
 import { VideoUploadForm } from "@/components/video-upload-form";
 import { getCreatorReport, TIER_META } from "@/lib/creator-report";
+import { CreatorGamification } from "@/components/creator-gamification";
+import { computeXp } from "@/lib/creator-level";
 
 const contentStatusLabels: Record<string, string> = {
   IDEA: "Pendiente",
@@ -174,6 +176,22 @@ export default async function CreatorSpacePage() {
 
   const report = await getCreatorReport(creator.id);
 
+  // Datos para el widget de gamificación
+  const [microcerts, eventsAttended] = await Promise.all([
+    prisma.certificate.count({ where: { userId: session.user.id } }),
+    prisma.eventRegistration.count({
+      where: { userId: session.user.id, status: { in: ["REGISTERED", "ATTENDED"] } },
+    }),
+  ]);
+  const fiveStarReviews = Math.round((report?.avgClientRating ?? 0) >= 4.5 ? (report?.totalCompleted ?? 0) * 0.5 : 0);
+  const xp = computeXp({
+    completedCampaigns: report?.totalCompleted ?? 0,
+    fiveStarReviews,
+    microcertificates: microcerts,
+    eventsAttended,
+  });
+  const creatorScoreNorm = Math.min(100, Math.round(((report?.score ?? 0) / 1500) * 100));
+
   // Campañas donde ya participa
   const myCampaigns = await prisma.campaignCreator.findMany({
     where: {
@@ -243,6 +261,17 @@ export default async function CreatorSpacePage() {
           CoMa Creator Space
         </p>
       </div>
+
+      {/* Widget de gamificación — nivel, XP, CScore, CoMaCoins */}
+      <CreatorGamification
+        xp={xp}
+        creatorScore={creatorScoreNorm}
+        stats={{
+          completedCampaigns: report?.totalCompleted ?? 0,
+          microcertificates: microcerts,
+          eventsAttended,
+        }}
+      />
 
       {/* Perfil público Connect */}
       <div className="mb-8 rounded-xl border border-border bg-card p-5">

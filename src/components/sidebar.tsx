@@ -35,7 +35,7 @@ type NavLink = {
 };
 
 const adminLinks: NavLink[] = [
-  { href: "/", label: "Inicio", icon: Home, exact: true },
+  { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
   { href: "/clientes", label: "Clientes", icon: Building2 },
   { href: "/creadores", label: "Creadores", icon: Palette },
   { href: "/campanas", label: "Campañas", icon: Megaphone },
@@ -60,9 +60,10 @@ const clientLinks: NavLink[] = [
 
 const creatorLinks: NavLink[] = [
   { href: "/mi-espacio", label: "Mi espacio", icon: Film, exact: true },
-  { href: "/mi-espacio/documentos", label: "Mis documentos", icon: FileText },
+  { href: "/mi-espacio/perfil", label: "Mi perfil", icon: Palette },
   { href: "/mi-espacio/academia", label: "Mi academia", icon: GraduationCap },
   { href: "/mi-espacio/eventos", label: "Mis eventos", icon: CalendarDays },
+  { href: "/mi-espacio/documentos", label: "Mis documentos", icon: FileText },
 ];
 
 function isActive(pathname: string, href: string, exact?: boolean) {
