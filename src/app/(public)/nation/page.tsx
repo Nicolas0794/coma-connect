@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
 import { CrossNav } from "@/components/cross-nav";
 import { CreativeBg } from "@/components/creative-bg";
+import { FloatingAvatars } from "@/components/creator-avatars";
 
 export const metadata: Metadata = {
   title: "CoMa Nation — eventos, meetups y workshops para creadoras",
@@ -39,6 +40,7 @@ export default async function NationCalendarPage() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border bg-grain">
         <CreativeBg variant="cool" />
+        <FloatingAvatars variant="trio" />
         <div className="mx-auto max-w-6xl px-6 py-16 relative">
           <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-3">
             CoMa Nation · Comunidad en movimiento

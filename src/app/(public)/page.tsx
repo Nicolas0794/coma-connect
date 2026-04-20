@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { CreativeBg } from "@/components/creative-bg";
 import { CreatorMarquee } from "@/components/creator-marquee";
+import { CreatorAvatarGrid, FloatingAvatars } from "@/components/creator-avatars";
 
 export const metadata: Metadata = {
   title: "CoMa — El sistema operativo de la creator economy",
@@ -22,6 +23,7 @@ export default async function HomePage() {
       {/* HERO */}
       <section className="relative overflow-hidden border-b border-border bg-grain">
         <CreativeBg variant="default" />
+        <FloatingAvatars variant="trio" />
         <div className="mx-auto max-w-6xl px-6 py-24 md:py-32 relative">
           <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-4 inline-flex items-center gap-2">
             <span className="relative flex h-2 w-2">
@@ -250,6 +252,9 @@ export default async function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* AVATARES DE ARQUETIPOS */}
+      <CreatorAvatarGrid />
 
       {/* CTA FINAL */}
       <section className="bg-foreground text-background">

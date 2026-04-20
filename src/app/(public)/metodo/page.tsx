@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { CrossNav } from "@/components/cross-nav";
 import { CreativeBg } from "@/components/creative-bg";
+import { FloatingAvatars } from "@/components/creator-avatars";
 
 export const metadata: Metadata = {
   title: "El método CoMa — gamificación, scoring y avatar",
@@ -87,6 +88,7 @@ export default function MetodoPage() {
       {/* Hero */}
       <section className="relative overflow-hidden border-b border-border bg-grain">
         <CreativeBg variant="default" />
+        <FloatingAvatars variant="trio" />
         <div className="mx-auto max-w-6xl px-6 py-16 relative">
           <p className="text-xs uppercase tracking-[0.2em] text-[#FF4B2C] font-semibold mb-3">
             El método CoMa
