@@ -7,16 +7,21 @@ export const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
 export const CLAUDE_MODEL_HEAVY =
   process.env.CLAUDE_MODEL_HEAVY ?? "claude-opus-4-7";
 
-let client: Anthropic | null | undefined;
+let client: Anthropic | null = null;
+let warnedNoKey = false;
 
 export function getAnthropicClient(): Anthropic | null {
-  if (client !== undefined) return client;
+  if (client) return client;
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    console.warn(
-      "[claude] ANTHROPIC_API_KEY no configurada — las features IA caen en fallback.",
-    );
-    client = null;
+    // Warn solo una vez para no spammear. Si la key se agrega después,
+    // NO cacheamos null — la próxima llamada la encuentra.
+    if (!warnedNoKey) {
+      console.warn(
+        "[claude] ANTHROPIC_API_KEY no configurada — las features IA caen en fallback.",
+      );
+      warnedNoKey = true;
+    }
     return null;
   }
   client = new Anthropic({ apiKey });

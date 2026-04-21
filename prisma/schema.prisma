@@ -406,9 +406,64 @@ model CreatorSocialProfile {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  // ── OAuth con API oficial (Meta Graph / TikTok) ──
+  // Cuando el creator conecta su cuenta, guardamos el token para pulls
+  // periódicos de insights. NULL = no conectado (solo scraping público).
+  externalId        String?           // IG Business Account ID / TikTok open_id
+  accessToken       String?           // long-lived token (60 días IG, 365 TikTok)
+  refreshToken      String?           // TikTok lo usa, IG no
+  tokenScope        String?           // scopes otorgados, separados por coma
+  tokenExpiresAt    DateTime?
+  connectedAt       DateTime?
+  disconnectedAt    DateTime?
+
+  creator  Creator         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  insights SocialInsight[]
 
   @@unique([creatorId, platform])
+  @@index([externalId])
+}
+
+// Snapshots de insights de redes — vienen verificados de Graph API.
+// Un snapshot = una foto del momento. Nuevos pulls crean registros nuevos
+// (histórico) en lugar de pisar, para ver evolución en el tiempo.
+model SocialInsight {
+  id                String   @id @default(cuid())
+  socialProfileId   String
+  capturedAt        DateTime @default(now())
+  source            String   // "meta-graph" | "tiktok-for-developers" | ...
+
+  // ── Métricas base ──
+  followers          Int?
+  reach30d           Int?     // cuentas alcanzadas últimos 30 días
+  impressions30d     Int?
+  profileViews30d    Int?
+  websiteClicks30d   Int?
+  avgEngagementRate  Float?   // % sobre followers
+
+  // ── Demografía de la audiencia (porcentajes 0-100) ──
+  genderFemalePct  Float?
+  genderMalePct    Float?
+  genderOtherPct   Float?
+
+  // Grupos etarios. Nulls cuando la API no los provee.
+  age13_17Pct Float?
+  age18_24Pct Float?
+  age25_34Pct Float?
+  age35_44Pct Float?
+  age45_54Pct Float?
+  age55PlusPct Float?
+
+  // Top ciudades/países como JSON: [{ name: "Bogotá, CO", pct: 34.2 }, ...]
+  topCities    Json?
+  topCountries Json?
+
+  // Raw completo del API por si queremos re-extraer algo.
+  rawPayload Json?
+
+  socialProfile CreatorSocialProfile @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
+
+  @@index([socialProfileId, capturedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

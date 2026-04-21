@@ -163,6 +163,12 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
               ✨ Autocompletar con IA
             </Link>
           )}
+          <Link
+            href="/mi-espacio/perfil/metricas"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold hover:bg-muted transition"
+          >
+            📊 Mis métricas
+          </Link>
           <Badge variant="outline">{STATUS_LABEL[creator.profileStatus]}</Badge>
           {creator.profileStatus === "PUBLISHED" && creator.slug && (
             <Link
