@@ -189,7 +189,7 @@ Aplicar `schema.safeParse(formData)` al inicio de cada action. Si falla → redi
 
 ---
 
-### 🟠 IMPORTANTE-5: Cero tests automatizados
+### ✅ 🟠 IMPORTANTE-5: Cero tests automatizados
 
 **Estado actual:** no hay `*.test.ts`, `*.spec.ts`, ni Vitest/Jest instalado.
 
@@ -407,7 +407,7 @@ await prisma.$transaction(async (tx) => {
 
 ## PARTE II — MEJORAS A LA INTEGRACIÓN CLAUDE ACTUAL
 
-### IA-1: Modelo hardcoded y desactualizado
+### ✅ IA-1: Modelo hardcoded y desactualizado
 
 **Archivos:** `src/lib/suggest-creators.ts:164`, `src/lib/generate-brief.ts:152`
 
@@ -461,7 +461,7 @@ model Campaign {
 
 ---
 
-### IA-4: Sin retries con backoff
+### ✅ IA-4: Sin retries con backoff
 
 **Archivos:** `src/lib/generate-brief.ts`, `src/lib/suggest-creators.ts`
 
@@ -491,7 +491,7 @@ export async function callClaudeWithRetry<T>(
 
 ---
 
-### IA-5: Cero tracking de costos y uso
+### ✅ IA-5: Cero tracking de costos y uso
 
 **Problema:** no se sabe cuánto gasta la plataforma en API, qué modelo usa cada call, ni qué casos fallan.
 
@@ -522,7 +522,7 @@ Logear después de cada llamada. Dashboard interno en `/admin/ai-usage` con cost
 
 ---
 
-### IA-6: Prompt injection posible
+### ✅ IA-6: Prompt injection posible
 
 **Archivo:** `src/lib/generate-brief.ts:105-121`
 
@@ -544,7 +544,7 @@ Generá el brief completo siguiendo la estructura exacta definida en tu system p
 
 ---
 
-### IA-7: JSON parsing frágil
+### ✅ IA-7: JSON parsing frágil
 
 **Archivo:** `src/lib/suggest-creators.ts:167-171`
 
@@ -589,7 +589,7 @@ Inyectar al system prompt con template literals.
 
 ---
 
-### IA-10: Sin detección de `stop_reason: max_tokens`
+### ✅ IA-10: Sin detección de `stop_reason: max_tokens`
 
 **Archivo:** `src/lib/generate-brief.ts:151-158`
 

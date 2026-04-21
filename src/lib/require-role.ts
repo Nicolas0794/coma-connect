@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import type { UserRole } from "@/generated/prisma/enums";
+import { homeForRole } from "@/lib/role-routes";
 
-export function homeForRole(role: UserRole | string): string {
-  if (role === "CREATOR") return "/mi-espacio";
-  if (role === "CLIENT") return "/portal";
-  if (role === "ADMIN" || role === "TEAM") return "/dashboard";
-  return "/login";
-}
+export { homeForRole };
 
 export async function requireRole(allowed: UserRole[]) {
   const session = await auth();

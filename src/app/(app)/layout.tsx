@@ -4,7 +4,7 @@ import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { prisma } from "@/lib/prisma";
-import { homeForRole } from "@/lib/require-role";
+import { homeForRole } from "@/lib/role-routes";
 
 export default async function AppLayout({
   children,

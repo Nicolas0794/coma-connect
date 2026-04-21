@@ -79,13 +79,14 @@ export const saveLocationSchema = z.object({
 
 export const saveSocialProfileSchema = z.object({
   platform: z.enum(SOCIAL_PLATFORMS),
-  handle: z
-    .string()
-    .trim()
-    .min(1)
-    .max(60)
-    .regex(/^[a-zA-Z0-9._-]+$/, "Handle inválido")
-    .transform((v) => v.replace(/^@/, "")),
+  handle: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().replace(/^@/, "") : v),
+    z
+      .string()
+      .min(1)
+      .max(60)
+      .regex(/^[a-zA-Z0-9._-]+$/, "Handle inválido"),
+  ),
 });
 
 export const portfolioItemSchema = z.object({
