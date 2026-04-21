@@ -39,9 +39,19 @@ export default async function PublicLayout({
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-border mt-16">
-        <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-muted-foreground flex items-center justify-between">
-          <span>© {new Date().getFullYear()} CoMa</span>
-          <span>Plataforma profesional de creadores de contenido</span>
+        <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-muted-foreground flex flex-col sm:flex-row items-center justify-between gap-3">
+          <span>© {new Date().getFullYear()} CoMa · Plataforma de creator economy LATAM</span>
+          <nav className="flex items-center gap-5">
+            <Link href="/soy-marca" className="hover:text-[#FF4B2C] transition-colors">
+              Sumá tu marca
+            </Link>
+            <Link href="/soy-creador" className="hover:text-foreground transition-colors">
+              Soy creador/a
+            </Link>
+            <Link href="/talento" className="hover:text-foreground transition-colors">
+              Ver talento
+            </Link>
+          </nav>
         </div>
       </footer>
     </div>

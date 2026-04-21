@@ -34,13 +34,13 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <Link
-              href="/register?role=brand"
+              href="/soy-marca"
               className="relative rounded-full bg-[#FF4B2C] text-white px-7 py-3 font-medium hover:opacity-90 transition animate-pulse-ring"
             >
               Soy marca →
             </Link>
             <Link
-              href="/register?role=creator"
+              href="/soy-creador"
               className="rounded-full bg-foreground text-background px-7 py-3 font-medium hover:opacity-90 transition"
             >
               Soy creador →
@@ -263,16 +263,16 @@ export default function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Link
-              href="/register?role=brand"
+              href="/soy-marca"
               className="rounded-full bg-[#FF4B2C] text-white px-8 py-3.5 font-medium hover:opacity-90 transition"
             >
-              Agendar demo (marcas)
+              Sumá tu marca
             </Link>
             <Link
-              href="/register?role=creator"
+              href="/soy-creador"
               className="rounded-full bg-background text-foreground px-8 py-3.5 font-medium hover:opacity-90 transition"
             >
-              Postular (creadores)
+              Soy creador/a
             </Link>
           </div>
         </div>

@@ -99,12 +99,26 @@ export function PublicNav({ user }: { user: SessionUser }) {
           </div>
         </>
       ) : (
-        <Link
-          href="/login"
-          className="rounded-full bg-foreground px-4 py-1.5 text-background hover:opacity-90"
-        >
-          Iniciar sesión
-        </Link>
+        <>
+          <Link
+            href="/soy-creador"
+            className="hidden md:inline-block rounded-full border border-border text-foreground px-4 py-1.5 font-medium hover:bg-foreground hover:text-background transition"
+          >
+            Soy creador/a
+          </Link>
+          <Link
+            href="/soy-marca"
+            className="hidden sm:inline-block rounded-full border border-[#FF4B2C] text-[#FF4B2C] px-4 py-1.5 font-medium hover:bg-[#FF4B2C] hover:text-white transition"
+          >
+            Soy marca
+          </Link>
+          <Link
+            href="/login"
+            className="rounded-full bg-foreground px-4 py-1.5 text-background hover:opacity-90"
+          >
+            Iniciar sesión
+          </Link>
+        </>
       )}
     </nav>
   );

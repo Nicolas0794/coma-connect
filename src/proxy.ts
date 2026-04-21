@@ -16,6 +16,9 @@ const publicPrefixes = [
   "/academy",
   "/nation",
   "/metodo",
+  "/sumar-marca",
+  "/soy-marca",
+  "/soy-creador",
   "/sitemap.xml",
   "/robots.txt",
 ];
@@ -27,7 +30,10 @@ function isPublicPath(pathname: string): boolean {
     pathname === "/talento" ||
     pathname === "/academy" ||
     pathname === "/nation" ||
-    pathname === "/metodo"
+    pathname === "/metodo" ||
+    pathname === "/sumar-marca" ||
+    pathname === "/soy-marca" ||
+    pathname === "/soy-creador"
   ) {
     return true;
   }

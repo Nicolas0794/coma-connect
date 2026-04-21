@@ -104,6 +104,36 @@ model InvitedEmail {
   @@index([role])
 }
 
+// Leads de marcas que quieren sumarse a CoMa Connect.
+// Flow: form público /sumar-marca → PENDING → TEAM revisa → APPROVED (crea InvitedEmail CLIENT + email) / REJECTED.
+enum BrandLeadStatus {
+  PENDING
+  CONTACTED
+  APPROVED
+  REJECTED
+}
+
+model BrandLead {
+  id           String           @id @default(cuid())
+  brandName    String
+  contactName  String
+  contactEmail String
+  contactPhone String?
+  website      String?
+  industry     String?
+  message      String?
+  source       String?          // referrer o campaign de origen
+  status       BrandLeadStatus  @default(PENDING)
+  reviewedBy   String?          // userId del team
+  reviewedAt   DateTime?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Clients
 // ─────────────────────────────────────────────────────────────────────────────

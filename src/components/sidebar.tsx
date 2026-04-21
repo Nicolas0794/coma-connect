@@ -17,6 +17,7 @@ import {
   BarChart3,
   GraduationCap,
   CalendarDays,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 
@@ -37,6 +38,7 @@ type NavLink = {
 const adminLinks: NavLink[] = [
   { href: "/dashboard", label: "Inicio", icon: Home, exact: true },
   { href: "/clientes", label: "Clientes", icon: Building2 },
+  { href: "/leads-marcas", label: "Leads de marcas", icon: Inbox },
   { href: "/creadores", label: "Creadores", icon: Palette },
   { href: "/campanas", label: "Campañas", icon: Megaphone },
   { href: "/academia", label: "Academy", icon: GraduationCap },

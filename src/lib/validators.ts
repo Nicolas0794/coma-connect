@@ -130,6 +130,16 @@ export const createInquirySchema = z.object({
   deadline: z.coerce.date().optional(),
 });
 
+export const brandLeadSchema = z.object({
+  brandName: shortText.min(2),
+  contactName: shortText.min(2),
+  contactEmail: emailSchema,
+  contactPhone: phoneSchema.optional(),
+  website: httpsUrl.optional(),
+  industry: shortText.optional(),
+  message: longText.optional(),
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
