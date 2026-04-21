@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { findPublicCreatorBySlug, averageRating, getDerivedBadges } from "@/lib/public-creator";
 import { ContactCreatorForm } from "@/components/contact-creator-form";
+import { CreatorVerifiedMetrics } from "@/components/creator-verified-metrics";
 
 type Params = Promise<{ slug: string }>;
 type SP = Promise<{ inquiry?: string }>;
@@ -442,6 +443,9 @@ export default async function PublicCreatorPage({
           </ol>
         </section>
       )}
+
+      {/* Métricas verificadas (OAuth Graph API) */}
+      <CreatorVerifiedMetrics profiles={creator.socialProfiles} />
 
       {/* Redes */}
       {creator.socialProfiles.length > 0 && (

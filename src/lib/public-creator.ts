@@ -9,7 +9,11 @@ export async function findPublicCreatorBySlug(slug: string) {
       profileVisibility: { in: ["PUBLIC", "CLIENTS_ONLY"] },
     },
     include: {
-      socialProfiles: true,
+      socialProfiles: {
+        include: {
+          insights: { orderBy: { capturedAt: "desc" }, take: 1 },
+        },
+      },
       services: {
         where: { isActive: true },
         orderBy: { order: "asc" },
