@@ -17,6 +17,8 @@ import {
   saveSocialProfileSchema,
   serviceSchema,
 } from "@/lib/validators";
+import { slugifyNiche } from "@/lib/niches";
+import { setCreatorNiches } from "@/lib/niches-db";
 
 async function requireCreator() {
   const session = await auth();
@@ -72,11 +74,16 @@ export async function saveClassification(formData: FormData) {
   const creatorTypes = pickArray(formData, "creatorTypes", [...CREATOR_TYPES]);
   const contentFormats = pickArray(formData, "contentFormats", [...CONTENT_FORMATS]);
   const languages = pickArray(formData, "languages", [...LANGUAGES]);
-  const niches = ((formData.get("niches") as string) ?? "")
-    .split(",")
-    .map((n) => n.trim().toLowerCase())
-    .filter(Boolean)
-    .slice(0, 20);
+  // MEJORA-10: slugificamos al estándar canónico. Mantenemos el String[]
+  // legacy y poblamos la junction normalizada debajo.
+  const niches = [
+    ...new Set(
+      ((formData.get("niches") as string) ?? "")
+        .split(",")
+        .map((n) => slugifyNiche(n))
+        .filter(Boolean),
+    ),
+  ].slice(0, 20);
   const yrs = Number(formData.get("yearsOfExperience"));
   const yearsOfExperience =
     Number.isFinite(yrs) && yrs > 0 && yrs < 100 ? Math.floor(yrs) : null;
@@ -85,6 +92,12 @@ export async function saveClassification(formData: FormData) {
     where: { id: creator.id },
     data: { creatorTypes, contentFormats, languages, niches, yearsOfExperience },
   });
+
+  // Poblar junction CreatorNiche (fire-and-forget, nunca rompe el save).
+  setCreatorNiches(creator.id, niches).catch((err) =>
+    console.error("[saveClassification] setCreatorNiches failed:", err),
+  );
+
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");
 }

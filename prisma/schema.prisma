@@ -104,6 +104,48 @@ model InvitedEmail {
   @@index([role])
 }
 
+// Nichos normalizados (MEJORA-10). Antes: String[] libre con inconsistencias.
+// Ahora: tabla canónica + junction tables. Creator.niches y Campaign.requiredNiches
+// quedan en paralelo durante la transición; se escriben ambos.
+model Niche {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  labelEs   String
+  labelEn   String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  creators  CreatorNiche[]
+  campaigns CampaignNiche[]
+
+  @@index([active, order])
+}
+
+model CreatorNiche {
+  creatorId String
+  nicheId   String
+  createdAt DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  niche   Niche   @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+
+  @@id([creatorId, nicheId])
+  @@index([nicheId])
+}
+
+model CampaignNiche {
+  campaignId String
+  nicheId    String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  niche    Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, nicheId])
+  @@index([nicheId])
+}
+
 // Log de uso de Claude API — tracking de costos, latencia, éxito.
 // Poblado por src/lib/claude.ts#logAiUsage en cada llamada.
 model AiUsageLog {
@@ -338,6 +380,7 @@ model Creator {
   inquiries        Inquiry[]
   savedByUsers     SavedCreator[]
   profileViews     ProfileView[]
+  nicheLinks       CreatorNiche[]
 
   @@index([profileStatus, profileVisibility])
   @@index([city, country])
@@ -406,6 +449,7 @@ model Campaign {
   attachments      CampaignAttachment[]
   suggestions      CampaignSuggestion[]
   inquiries        Inquiry[]
+  nicheLinks       CampaignNiche[]
 }
 
 model CampaignAttachment {

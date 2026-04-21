@@ -296,7 +296,7 @@ Instrumentar mínimo: aprobación de pagos, cambios de rol, suspensión de creat
 
 ---
 
-### 🟡 MEJORA-10: `niches` como `String[]` libre genera inconsistencia
+### ✅ 🟡 MEJORA-10: `niches` como `String[]` libre genera inconsistencia
 
 **Archivo:** `prisma/schema.prisma` (Creator.niches, Campaign.requiredNiches)
 
