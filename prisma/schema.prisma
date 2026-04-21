@@ -25,7 +25,7 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
-  role          UserRole  @default(TEAM)
+  role          UserRole  @default(CREATOR)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -87,6 +87,21 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Whitelist para permitir signup con rol elevado (TEAM/ADMIN/CLIENT).
+// Si un email NO está en esta tabla, el signup lo crea con rol CREATOR.
+// Se consume al primer login; luego queda `usedAt` seteado para auditoría.
+model InvitedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole
+  invitedBy String?
+  note      String?
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  @@index([role])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

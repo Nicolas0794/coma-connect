@@ -6,9 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { createPasswordResetToken } from "@/lib/tokens";
 import { sendPasswordResetEmail } from "@/lib/email";
 import Link from "next/link";
+import {
+  checkLimit,
+  forgotPasswordLimiter,
+  ipKey,
+} from "@/lib/ratelimit";
 
 async function requestReset(formData: FormData) {
   "use server";
+  const { allowed } = await checkLimit(forgotPasswordLimiter(), await ipKey());
+  if (!allowed) redirect("/forgot-password?error=ratelimit");
+
   const email = (formData.get("email") as string)?.toLowerCase().trim();
   if (!email) return;
 
@@ -24,10 +32,11 @@ async function requestReset(formData: FormData) {
 export default async function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string }>;
+  searchParams: Promise<{ sent?: string; error?: string }>;
 }) {
   const params = await searchParams;
   const sent = params.sent === "true";
+  const rateLimited = params.error === "ratelimit";
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4 sm:p-6">
@@ -83,6 +92,13 @@ export default async function ForgotPasswordPage({
                     autoComplete="email"
                   />
                 </div>
+
+                {rateLimited && (
+                  <div className="animate-fade-in rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+                    Demasiados intentos. Esperá un rato antes de volver a
+                    intentar.
+                  </div>
+                )}
 
                 <Button type="submit" className="w-full">
                   Enviar link

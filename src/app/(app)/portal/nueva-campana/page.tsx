@@ -6,6 +6,7 @@ import { getNextCampaignCode } from "@/lib/campaign-code";
 import { notifyCreatorsNewCampaignMatch } from "@/lib/notify";
 import { suggestCreatorsForCampaign } from "@/lib/suggest-creators";
 import { uploadCampaignAttachmentToDrive } from "@/lib/google-drive-campaign";
+import { aiLimiter, checkLimit } from "@/lib/ratelimit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +23,15 @@ async function createCampaign(formData: FormData) {
 
   const session = await auth();
   if (session?.user?.role !== "CLIENT") return;
+
+  // Rate-limit para contener costos de Claude (CRÍTICA-3).
+  const { allowed } = await checkLimit(
+    aiLimiter(),
+    `user:${session.user.id}:generate-brief`,
+  );
+  if (!allowed) {
+    redirect("/portal/nueva-campana?error=ratelimit");
+  }
 
   const membership = await prisma.clientMember.findFirst({
     where: { userId: session.user.id },
@@ -191,6 +201,11 @@ export default async function NuevaCampanaClientePage({
           {params.error === "required" && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
               El nombre y la descripción son obligatorios.
+            </div>
+          )}
+          {params.error === "ratelimit" && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+              Alcanzaste el límite de generación de briefs. Intentá en un rato.
             </div>
           )}
 

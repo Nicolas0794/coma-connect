@@ -4,24 +4,26 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 import { notifyCreatorNewInquiry } from "@/lib/notifications";
+import { createInquirySchema, formToObject } from "@/lib/validators";
 
 export async function createInquiry(formData: FormData) {
-  const slug = (formData.get("slug") as string)?.trim();
-  const brief = (formData.get("brief") as string)?.trim() ?? "";
-  const contactName = (formData.get("contactName") as string)?.trim() ?? "";
-  const contactEmail = (formData.get("contactEmail") as string)?.trim().toLowerCase() ?? "";
-  const contactPhone = (formData.get("contactPhone") as string)?.trim() || null;
-  const budgetRaw = Number(formData.get("budgetCOP"));
-  const budgetCOP = Number.isFinite(budgetRaw) && budgetRaw > 0 ? budgetRaw : null;
-  const deadlineRaw = (formData.get("deadline") as string)?.trim();
-  const deadline = deadlineRaw ? new Date(deadlineRaw) : null;
+  const raw = formToObject(formData);
+  const slugFallback = typeof raw.slug === "string" ? raw.slug : "";
 
-  if (!slug || !brief || !contactName || !contactEmail) {
-    redirect(`/c/${slug}?inquiry=validation`);
+  const parsed = createInquirySchema.safeParse(raw);
+  if (!parsed.success) {
+    redirect(`/c/${slugFallback}?inquiry=validation`);
   }
-  if (brief.length < 20) {
-    redirect(`/c/${slug}?inquiry=validation`);
-  }
+
+  const {
+    slug,
+    brief,
+    contactName,
+    contactEmail,
+    contactPhone,
+    budgetCOP,
+    deadline,
+  } = parsed.data;
 
   const creator = await prisma.creator.findUnique({
     where: { slug },
@@ -47,10 +49,10 @@ export async function createInquiry(formData: FormData) {
       clientId,
       contactName,
       contactEmail,
-      contactPhone,
+      contactPhone: contactPhone ?? null,
       brief,
-      budgetCOP,
-      deadline,
+      budgetCOP: budgetCOP ?? null,
+      deadline: deadline ?? null,
       status: "PENDING",
     },
   });

@@ -5,6 +5,11 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getNextCampaignCode } from "@/lib/campaign-code";
+import {
+  formToObject,
+  inquiryMessageSchema,
+  quoteSchema,
+} from "@/lib/validators";
 
 async function requireCreator() {
   const session = await auth();
@@ -38,9 +43,9 @@ export async function markInquiryViewed(inquiryId: string) {
 
 export async function sendInquiryMessage(formData: FormData) {
   const { creator, session } = await requireCreator();
-  const inquiryId = formData.get("inquiryId") as string;
-  const body = ((formData.get("body") as string) ?? "").trim();
-  if (!inquiryId || !body) return;
+  const parsed = inquiryMessageSchema.safeParse(formToObject(formData));
+  if (!parsed.success) return;
+  const { inquiryId, body } = parsed.data;
 
   const inq = await getInquiryForCreator(inquiryId, creator.id);
   if (!inq) return;
@@ -53,27 +58,31 @@ export async function sendInquiryMessage(formData: FormData) {
 
 export async function sendQuote(formData: FormData) {
   const { creator } = await requireCreator();
-  const inquiryId = formData.get("inquiryId") as string;
-  const priceRaw = Number(formData.get("priceCOP"));
-  const priceCOP = Number.isFinite(priceRaw) && priceRaw > 0 ? priceRaw : null;
-  const scope = ((formData.get("scope") as string) ?? "").trim();
-  const daysRaw = Number(formData.get("deliveryDays"));
-  const deliveryDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.floor(daysRaw) : null;
-  const terms = ((formData.get("terms") as string) ?? "").trim() || null;
+  const raw = formToObject(formData);
+  const inquiryId = typeof raw.inquiryId === "string" ? raw.inquiryId : "";
+  const parsed = quoteSchema.safeParse(raw);
+  if (!parsed.success) {
+    redirect(`/mi-espacio/inquiries/${inquiryId}?error=validation`);
+  }
+  const { priceCOP, scope, deliveryDays, terms } = parsed.data;
 
-  if (!priceCOP || !scope) redirect(`/mi-espacio/inquiries/${inquiryId}?error=validation`);
-
-  const inq = await getInquiryForCreator(inquiryId, creator.id);
+  const inq = await getInquiryForCreator(parsed.data.inquiryId, creator.id);
   if (!inq) return;
 
   await prisma.quote.create({
-    data: { inquiryId, priceCOP, scope, deliveryDays, terms },
+    data: {
+      inquiryId: parsed.data.inquiryId,
+      priceCOP,
+      scope,
+      deliveryDays: deliveryDays ?? null,
+      terms: terms ?? null,
+    },
   });
   await prisma.inquiry.update({
-    where: { id: inquiryId },
+    where: { id: parsed.data.inquiryId },
     data: { status: "QUOTED" },
   });
-  revalidatePath(`/mi-espacio/inquiries/${inquiryId}`);
+  revalidatePath(`/mi-espacio/inquiries/${parsed.data.inquiryId}`);
 }
 
 export async function declineInquiry(formData: FormData) {

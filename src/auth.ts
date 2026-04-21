@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
 import type { UserRole } from "@/generated/prisma/enums";
+import { generateUniqueSlug } from "@/lib/creator-profile";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -55,15 +56,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
 
         if (!existing) {
-          await prisma.user.create({
+          // CRÍTICA-2: por defecto rol CREATOR. Rol elevado solo vía whitelist.
+          const invite = await prisma.invitedEmail.findUnique({
+            where: { email },
+          });
+          const role: UserRole = invite?.role ?? "CREATOR";
+
+          const created = await prisma.user.create({
             data: {
               email,
               name: user.name,
               image: user.image,
-              role: "TEAM",
+              role,
               emailVerified: new Date(),
             },
           });
+
+          if (invite && !invite.usedAt) {
+            await prisma.invitedEmail.update({
+              where: { id: invite.id },
+              data: { usedAt: new Date() },
+            });
+          }
+
+          // Si es CREATOR, crear su perfil para que /mi-espacio funcione.
+          if (role === "CREATOR") {
+            const slug = await generateUniqueSlug(user.name ?? email);
+            await prisma.creator.create({
+              data: {
+                userId: created.id,
+                fullName: user.name ?? email,
+                email,
+                slug,
+                profileStatus: "DRAFT",
+                profileVisibility: "PRIVATE",
+              },
+            });
+          }
         } else if (!existing.image && user.image) {
           await prisma.user.update({
             where: { email },

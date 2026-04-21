@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/sidebar";
 import { prisma } from "@/lib/prisma";
+import { homeForRole } from "@/lib/require-role";
 
 export default async function AppLayout({
   children,
@@ -16,6 +18,23 @@ export default async function AppLayout({
   }
 
   const role = session.user.role;
+
+  // Defensa en profundidad: aunque el proxy ya enruta por rol (CRÍTICA-1),
+  // bloqueamos acá por si el matcher del proxy no cubre algún caso.
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const isCreatorArea =
+    pathname.startsWith("/mi-espacio") ||
+    pathname.startsWith("/notificaciones");
+  const isClientArea =
+    pathname.startsWith("/portal") || pathname.startsWith("/notificaciones");
+
+  if (role === "CREATOR" && pathname && !isCreatorArea) {
+    redirect(homeForRole(role));
+  }
+  if (role === "CLIENT" && pathname && !isClientArea) {
+    redirect(homeForRole(role));
+  }
+
   const unreadCount = await prisma.notification.count({
     where: { userId: session.user.id, read: false, channel: "IN_APP" },
   });

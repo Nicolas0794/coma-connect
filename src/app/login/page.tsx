@@ -7,9 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreatorAvatarsBg } from "@/components/creator-avatars-bg";
+import { checkLimit, ipKey, loginLimiter } from "@/lib/ratelimit";
 
 async function login(formData: FormData) {
   "use server";
+  const { allowed } = await checkLimit(loginLimiter(), await ipKey());
+  if (!allowed) redirect("/login?error=ratelimit");
+
   try {
     await signIn("credentials", {
       email: formData.get("email"),
@@ -50,6 +54,7 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const hasError = params.error === "invalid";
+  const rateLimited = params.error === "ratelimit";
   const wasReset = params.reset === "success";
 
   return (
@@ -170,6 +175,13 @@ export default async function LoginPage({
             {hasError && (
               <div className="animate-fade-in rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
                 Email o contraseña incorrectos.
+              </div>
+            )}
+
+            {rateLimited && (
+              <div className="animate-fade-in rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+                Demasiados intentos. Esperá unos minutos antes de volver a
+                intentar.
               </div>
             )}
 
