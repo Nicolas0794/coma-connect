@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { fetchInstagramInsights } from "@/lib/meta-insights";
+import { fetchTikTokUserInfo } from "@/lib/tiktok-insights";
+import { refreshAccessToken } from "@/lib/tiktok-oauth";
 import { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -109,4 +111,111 @@ export async function disconnectInstagram() {
   revalidatePath("/mi-espacio/perfil/metricas");
   revalidatePath("/mi-espacio/perfil");
   redirect("/mi-espacio/perfil/metricas?disconnected=1");
+}
+
+// ─── TikTok ─────────────────────────────────────────────────────────────
+
+export async function syncTikTokInsights() {
+  const session = await auth();
+  if (session?.user?.role !== "CREATOR") redirect("/");
+
+  const creator = await prisma.creator.findUnique({
+    where: { userId: session.user.id! },
+    select: { id: true },
+  });
+  if (!creator) redirect("/mi-espacio");
+
+  let profile = await prisma.creatorSocialProfile.findUnique({
+    where: {
+      creatorId_platform: { creatorId: creator.id, platform: "TIKTOK" },
+    },
+  });
+
+  if (!profile?.accessToken || !profile.refreshToken) {
+    redirect("/mi-espacio/perfil/metricas?error=tt_not_connected");
+  }
+
+  // Si el access token expiró (24h), refreshealo automáticamente.
+  if (
+    profile.tokenExpiresAt &&
+    profile.tokenExpiresAt.getTime() < Date.now() + 60_000
+  ) {
+    try {
+      const refreshed = await refreshAccessToken(profile.refreshToken);
+      profile = await prisma.creatorSocialProfile.update({
+        where: { id: profile.id },
+        data: {
+          accessToken: refreshed.access_token,
+          refreshToken: refreshed.refresh_token,
+          tokenExpiresAt: new Date(Date.now() + refreshed.expires_in * 1000),
+          tokenScope: refreshed.scope,
+        },
+      });
+    } catch (err) {
+      console.error("[tiktok refresh] falló:", err);
+      redirect("/mi-espacio/perfil/metricas?error=tt_refresh_failed");
+    }
+  }
+
+  const user = await fetchTikTokUserInfo(profile.accessToken!);
+  if (!user) {
+    redirect("/mi-espacio/perfil/metricas?error=tt_pull_failed");
+  }
+
+  await prisma.socialInsight.create({
+    data: {
+      socialProfileId: profile.id,
+      source: "tiktok-display",
+      followers: user.followers,
+      rawPayload: {
+        openId: user.openId,
+        username: user.username,
+        displayName: user.displayName,
+        bio: user.bio,
+        avatarUrl: user.avatarUrl,
+        following: user.following,
+        likes: user.likes,
+        videoCount: user.videoCount,
+      } as Prisma.InputJsonValue,
+    },
+  });
+
+  await prisma.creatorSocialProfile.update({
+    where: { id: profile.id },
+    data: {
+      verifiedFollowers: user.followers,
+      verifiedAt: new Date(),
+      lastSyncedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/mi-espacio/perfil/metricas");
+  revalidatePath("/mi-espacio/perfil");
+  redirect("/mi-espacio/perfil/metricas?synced_tt=1");
+}
+
+export async function disconnectTikTok() {
+  const session = await auth();
+  if (session?.user?.role !== "CREATOR") redirect("/");
+
+  const creator = await prisma.creator.findUnique({
+    where: { userId: session.user.id! },
+    select: { id: true },
+  });
+  if (!creator) redirect("/mi-espacio");
+
+  await prisma.creatorSocialProfile.updateMany({
+    where: { creatorId: creator.id, platform: "TIKTOK" },
+    data: {
+      accessToken: null,
+      refreshToken: null,
+      tokenExpiresAt: null,
+      externalId: null,
+      disconnectedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/mi-espacio/perfil/metricas");
+  revalidatePath("/mi-espacio/perfil");
+  redirect("/mi-espacio/perfil/metricas?disconnected_tt=1");
 }
