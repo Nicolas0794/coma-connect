@@ -369,6 +369,10 @@ model Creator {
   metaDescription String?
   ogImageUrl      String?
 
+  // ── Connect: autofill desde redes (PROYECTO A) ──
+  autofillSourceUrl String?
+  autofillAt        DateTime?
+
   user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   socialProfiles   CreatorSocialProfile[]
   campaignCreators CampaignCreator[]

@@ -57,7 +57,7 @@ const STATUS_LABEL: Record<string, string> = {
   SUSPENDED: "Suspendido",
 };
 
-type SP = Promise<{ error?: string; sent?: string }>;
+type SP = Promise<{ error?: string; sent?: string; autofilled?: string }>;
 
 export default async function PerfilPage({ searchParams }: { searchParams: SP }) {
   const session = await auth();
@@ -93,7 +93,7 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
     take: 10,
   });
 
-  const { error, sent } = await searchParams;
+  const { error, sent, autofilled } = await searchParams;
   const ig = creator.socialProfiles.find((s) => s.platform === "INSTAGRAM");
   const tk = creator.socialProfiles.find((s) => s.platform === "TIKTOK");
 
@@ -122,7 +122,13 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
             Este es el perfil público que las marcas van a ver.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href="/mi-espacio/perfil/autofill"
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FF4B2C] to-[#FF7A66] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition"
+          >
+            ✨ Autocompletar con IA
+          </Link>
           <Badge variant="outline">{STATUS_LABEL[creator.profileStatus]}</Badge>
           {creator.profileStatus === "PUBLISHED" && creator.slug && (
             <Link
@@ -137,6 +143,12 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
       </div>
 
       {/* Alertas */}
+      {autofilled === "1" && (
+        <div className="rounded-lg bg-[#D6E889]/25 border border-[#D6E889]/60 px-4 py-3 text-sm">
+          ✨ Completamos tu perfil con lo que leímos de tu Instagram. Revisá
+          cada sección y ajustá lo que haga falta antes de enviar a revisión.
+        </div>
+      )}
       {sent === "1" && (
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
           ✓ Perfil enviado a revisión. Te avisaremos cuando el equipo de CoMa lo apruebe.
@@ -145,6 +157,11 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
       {error === "incomplete" && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
           Necesitás al menos 60% de completitud para enviar a revisión.
+        </div>
+      )}
+      {error === "validation" && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          Revisá los datos ingresados — el formato de alguno no es válido.
         </div>
       )}
 

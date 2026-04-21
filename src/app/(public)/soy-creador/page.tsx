@@ -12,6 +12,11 @@ export const metadata: Metadata = {
 
 const BENEFITS = [
   {
+    icon: "✨",
+    title: "Onboarding en 30 segundos con IA",
+    body: "Pegás tu handle de Instagram y Claude lee tu perfil público para proponer headline, nichos, tipos de contenido y tarifa estimada. Vos revisás y ajustás.",
+  },
+  {
     icon: "🎯",
     title: "Campañas que llegan solas",
     body: "Nuestra IA de matching te sugiere campañas compatibles con tu estilo, ubicación y nicho. Menos cold DMs, más trabajo real.",
@@ -226,10 +231,11 @@ export default function SoyCreadorPage() {
           <ol className="space-y-3">
             {[
               ["01", "Creás tu cuenta", "Email, contraseña y listo. Sin verificaciones raras."],
-              ["02", "Armás tu perfil", "Subís 3-5 piezas a tu portafolio, tarifas y redes. 10 min."],
-              ["03", "Publicamos tu perfil", "Revisamos que todo esté bien y lo ponemos online."],
-              ["04", "Te llegan campañas", "IA de matching te notifica cuando hay match o las marcas te contactan directo."],
-              ["05", "Producís + cobrás", "Subís el contenido desde la plataforma, se aprueba, se publica, se paga."],
+              ["02", "Autocompletás con IA (opcional)", "Pegás tu handle de Instagram y Claude propone headline, nichos y tarifa. Tardás menos de 1 minuto."],
+              ["03", "Ajustás lo que haga falta", "Subís 3-5 piezas a tu portafolio y revisás lo que propuso la IA."],
+              ["04", "Publicamos tu perfil", "Revisamos que todo esté bien y lo ponemos online."],
+              ["05", "Te llegan campañas", "IA de matching te notifica cuando hay match o las marcas te contactan directo."],
+              ["06", "Producís + cobrás", "Subís el contenido desde la plataforma, se aprueba, se publica, se paga."],
             ].map(([num, title, desc]) => (
               <li
                 key={num}

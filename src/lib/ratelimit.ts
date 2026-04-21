@@ -57,6 +57,7 @@ export const uploadDocLimiter = () => getLimiter("upload-doc", 20, "1 h");
 export const uploadVideoLimiter = () => getLimiter("upload-video", 10, "1 h");
 export const aiLimiter = () => getLimiter("ai", 20, "1 h");
 export const brandLeadLimiter = () => getLimiter("brand-lead", 3, "1 h");
+export const autofillLimiter = () => getLimiter("autofill", 5, "1 h");
 
 /** Extrae IP de headers (para server actions y route handlers). */
 export async function ipKey(): Promise<string> {
