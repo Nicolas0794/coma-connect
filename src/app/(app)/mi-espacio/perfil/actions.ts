@@ -5,6 +5,20 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { recomputeCreatorCompleteness } from "@/lib/creator-profile";
+import {
+  AVAILABILITY,
+  CONTENT_FORMATS,
+  CREATOR_TYPES,
+  LANGUAGES,
+  formToObject,
+  portfolioItemSchema,
+  saveIdentitySchema,
+  saveLocationSchema,
+  saveSocialProfileSchema,
+  serviceSchema,
+} from "@/lib/validators";
+import { slugifyNiche } from "@/lib/niches";
+import { setCreatorNiches } from "@/lib/niches-db";
 
 async function requireCreator() {
   const session = await auth();
@@ -21,27 +35,19 @@ function pickArray<T extends string>(formData: FormData, key: string, allowed: T
   return raw.filter((v): v is T => allowed.includes(v as T));
 }
 
-const CREATOR_TYPES = [
-  "UGC", "INFLUENCER", "FILMMAKER", "PHOTOGRAPHER", "EDITOR",
-  "STRATEGIST", "COPYWRITER", "DESIGNER", "MODEL",
-] as const;
-const CONTENT_FORMATS = [
-  "REEL", "TIKTOK_VIDEO", "PHOTO", "LONG_VIDEO", "CAROUSEL",
-  "LIVE", "PODCAST", "BLOG",
-] as const;
-const LANGUAGES = ["ES", "EN", "PT"] as const;
-const AVAILABILITY = ["AVAILABLE", "LIMITED", "BUSY", "CLOSED"] as const;
-
 export async function saveIdentity(formData: FormData) {
   const creator = await requireCreator();
-  const artistName = ((formData.get("artistName") as string) ?? "").trim() || null;
-  const headline = ((formData.get("headline") as string) ?? "").trim() || null;
-  const valuePitch = ((formData.get("valuePitch") as string) ?? "").trim() || null;
-  const profileImageUrl = ((formData.get("profileImageUrl") as string) ?? "").trim() || null;
+  const parsed = saveIdentitySchema.safeParse(formToObject(formData));
+  if (!parsed.success) redirect("/mi-espacio/perfil?error=validation");
 
   await prisma.creator.update({
     where: { id: creator.id },
-    data: { artistName, headline, valuePitch, profileImageUrl },
+    data: {
+      artistName: parsed.data.artistName ?? null,
+      headline: parsed.data.headline ?? null,
+      valuePitch: parsed.data.valuePitch ?? null,
+      profileImageUrl: parsed.data.profileImageUrl ?? null,
+    },
   });
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");
@@ -49,12 +55,15 @@ export async function saveIdentity(formData: FormData) {
 
 export async function saveLocation(formData: FormData) {
   const creator = await requireCreator();
-  const city = ((formData.get("city") as string) ?? "").trim() || null;
-  const country = ((formData.get("country") as string) ?? "").trim() || null;
+  const parsed = saveLocationSchema.safeParse(formToObject(formData));
+  if (!parsed.success) redirect("/mi-espacio/perfil?error=validation");
 
   await prisma.creator.update({
     where: { id: creator.id },
-    data: { city, country },
+    data: {
+      city: parsed.data.city ?? null,
+      country: parsed.data.country ?? null,
+    },
   });
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");
@@ -65,17 +74,30 @@ export async function saveClassification(formData: FormData) {
   const creatorTypes = pickArray(formData, "creatorTypes", [...CREATOR_TYPES]);
   const contentFormats = pickArray(formData, "contentFormats", [...CONTENT_FORMATS]);
   const languages = pickArray(formData, "languages", [...LANGUAGES]);
-  const niches = ((formData.get("niches") as string) ?? "")
-    .split(",")
-    .map((n) => n.trim().toLowerCase())
-    .filter(Boolean);
+  // MEJORA-10: slugificamos al estándar canónico. Mantenemos el String[]
+  // legacy y poblamos la junction normalizada debajo.
+  const niches = [
+    ...new Set(
+      ((formData.get("niches") as string) ?? "")
+        .split(",")
+        .map((n) => slugifyNiche(n))
+        .filter(Boolean),
+    ),
+  ].slice(0, 20);
   const yrs = Number(formData.get("yearsOfExperience"));
-  const yearsOfExperience = Number.isFinite(yrs) && yrs > 0 ? Math.floor(yrs) : null;
+  const yearsOfExperience =
+    Number.isFinite(yrs) && yrs > 0 && yrs < 100 ? Math.floor(yrs) : null;
 
   await prisma.creator.update({
     where: { id: creator.id },
     data: { creatorTypes, contentFormats, languages, niches, yearsOfExperience },
   });
+
+  // Poblar junction CreatorNiche (fire-and-forget, nunca rompe el save).
+  setCreatorNiches(creator.id, niches).catch((err) =>
+    console.error("[saveClassification] setCreatorNiches failed:", err),
+  );
+
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");
 }
@@ -88,7 +110,10 @@ export async function saveAvailability(formData: FormData) {
     : "AVAILABLE";
   const showPricing = formData.get("showPricing") === "on";
   const rateRaw = Number(formData.get("baseRateCOP"));
-  const baseRateCOP = Number.isFinite(rateRaw) && rateRaw > 0 ? rateRaw : null;
+  const baseRateCOP =
+    Number.isFinite(rateRaw) && rateRaw > 0 && rateRaw < 1_000_000_000
+      ? rateRaw
+      : null;
 
   await prisma.creator.update({
     where: { id: creator.id },
@@ -100,9 +125,10 @@ export async function saveAvailability(formData: FormData) {
 
 export async function saveSocialProfile(formData: FormData) {
   const creator = await requireCreator();
-  const platform = (formData.get("platform") as string) === "TIKTOK" ? "TIKTOK" : "INSTAGRAM";
-  const handle = ((formData.get("handle") as string) ?? "").trim().replace(/^@/, "");
-  if (!handle) return;
+  const parsed = saveSocialProfileSchema.safeParse(formToObject(formData));
+  if (!parsed.success) redirect("/mi-espacio/perfil?error=validation");
+
+  const { platform, handle } = parsed.data;
   const url =
     platform === "INSTAGRAM"
       ? `https://instagram.com/${handle}`
@@ -119,14 +145,17 @@ export async function saveSocialProfile(formData: FormData) {
 
 export async function addPortfolioItem(formData: FormData) {
   const creator = await requireCreator();
-  const title = ((formData.get("title") as string) ?? "").trim();
-  if (!title) return;
-  const externalUrl = ((formData.get("externalUrl") as string) ?? "").trim() || null;
-  const coverImageUrl = ((formData.get("coverImageUrl") as string) ?? "").trim() || null;
-  const brandName = ((formData.get("brandName") as string) ?? "").trim() || null;
+  const parsed = portfolioItemSchema.safeParse(formToObject(formData));
+  if (!parsed.success) redirect("/mi-espacio/perfil?error=validation");
 
   await prisma.portfolioItem.create({
-    data: { creatorId: creator.id, title, externalUrl, coverImageUrl, brandName },
+    data: {
+      creatorId: creator.id,
+      title: parsed.data.title,
+      externalUrl: parsed.data.externalUrl ?? null,
+      coverImageUrl: parsed.data.coverImageUrl ?? null,
+      brandName: parsed.data.brandName ?? null,
+    },
   });
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");
@@ -142,16 +171,17 @@ export async function removePortfolioItem(formData: FormData) {
 
 export async function addService(formData: FormData) {
   const creator = await requireCreator();
-  const title = ((formData.get("title") as string) ?? "").trim();
-  if (!title) return;
-  const description = ((formData.get("description") as string) ?? "").trim() || null;
-  const priceRaw = Number(formData.get("priceCOP"));
-  const priceCOP = Number.isFinite(priceRaw) && priceRaw > 0 ? priceRaw : null;
-  const daysRaw = Number(formData.get("deliveryDays"));
-  const deliveryDays = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.floor(daysRaw) : null;
+  const parsed = serviceSchema.safeParse(formToObject(formData));
+  if (!parsed.success) redirect("/mi-espacio/perfil?error=validation");
 
   await prisma.service.create({
-    data: { creatorId: creator.id, title, description, priceCOP, deliveryDays },
+    data: {
+      creatorId: creator.id,
+      title: parsed.data.title,
+      description: parsed.data.description ?? null,
+      priceCOP: parsed.data.priceCOP ?? null,
+      deliveryDays: parsed.data.deliveryDays ?? null,
+    },
   });
   await recomputeCreatorCompleteness(creator.id);
   revalidatePath("/mi-espacio/perfil");

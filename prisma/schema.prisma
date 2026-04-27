@@ -25,7 +25,7 @@ model User {
   emailVerified DateTime?
   image         String?
   passwordHash  String?
-  role          UserRole  @default(TEAM)
+  role          UserRole  @default(CREATOR)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -39,6 +39,19 @@ model User {
   savedCreators    SavedCreator[]
   profileViews     ProfileView[]
   inquiryMessages  InquiryMessage[]
+
+  // ── Academy ──
+  enrollments     CourseEnrollment[]
+  certificates    Certificate[]
+  creatorSkills   CreatorSkill[]
+
+  // ── Nation ──
+  eventsOrganized  Event[]             @relation("EventOrganizer")
+  eventSpeakerships EventSpeaker[]
+  eventRegistrations EventRegistration[]
+
+  // ── Crossover ──
+  achievements UserAchievement[]
 }
 
 model Account {
@@ -74,6 +87,115 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+// Whitelist para permitir signup con rol elevado (TEAM/ADMIN/CLIENT).
+// Si un email NO está en esta tabla, el signup lo crea con rol CREATOR.
+// Se consume al primer login; luego queda `usedAt` seteado para auditoría.
+model InvitedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      UserRole
+  invitedBy String?
+  note      String?
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  @@index([role])
+}
+
+// Nichos normalizados (MEJORA-10). Antes: String[] libre con inconsistencias.
+// Ahora: tabla canónica + junction tables. Creator.niches y Campaign.requiredNiches
+// quedan en paralelo durante la transición; se escriben ambos.
+model Niche {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  labelEs   String
+  labelEn   String?
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  creators  CreatorNiche[]
+  campaigns CampaignNiche[]
+
+  @@index([active, order])
+}
+
+model CreatorNiche {
+  creatorId String
+  nicheId   String
+  createdAt DateTime @default(now())
+
+  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  niche   Niche   @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+
+  @@id([creatorId, nicheId])
+  @@index([nicheId])
+}
+
+model CampaignNiche {
+  campaignId String
+  nicheId    String
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  niche    Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, nicheId])
+  @@index([nicheId])
+}
+
+// Log de uso de Claude API — tracking de costos, latencia, éxito.
+// Poblado por src/lib/claude.ts#logAiUsage en cada llamada.
+model AiUsageLog {
+  id            String   @id @default(cuid())
+  feature       String   // "generate-brief" | "suggest-creators" | ...
+  model         String
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  stopReason    String?
+  durationMs    Int      @default(0)
+  success       Boolean
+  errorMessage  String?
+  entityType    String?  // "Campaign" | "Creator" | ...
+  entityId      String?
+  userId        String?
+  createdAt     DateTime @default(now())
+
+  @@index([feature, createdAt])
+  @@index([userId, createdAt])
+  @@index([model, createdAt])
+}
+
+// Leads de marcas que quieren sumarse a CoMa Connect.
+// Flow: form público /sumar-marca → PENDING → TEAM revisa → APPROVED (crea InvitedEmail CLIENT + email) / REJECTED.
+enum BrandLeadStatus {
+  PENDING
+  CONTACTED
+  APPROVED
+  REJECTED
+}
+
+model BrandLead {
+  id           String           @id @default(cuid())
+  brandName    String
+  contactName  String
+  contactEmail String
+  contactPhone String?
+  website      String?
+  industry     String?
+  message      String?
+  source       String?          // referrer o campaign de origen
+  status       BrandLeadStatus  @default(PENDING)
+  reviewedBy   String?          // userId del team
+  reviewedAt   DateTime?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -247,6 +369,10 @@ model Creator {
   metaDescription String?
   ogImageUrl      String?
 
+  // ── Connect: autofill desde redes (PROYECTO A) ──
+  autofillSourceUrl String?
+  autofillAt        DateTime?
+
   user             User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   socialProfiles   CreatorSocialProfile[]
   campaignCreators CampaignCreator[]
@@ -258,6 +384,7 @@ model Creator {
   inquiries        Inquiry[]
   savedByUsers     SavedCreator[]
   profileViews     ProfileView[]
+  nicheLinks       CreatorNiche[]
 
   @@index([profileStatus, profileVisibility])
   @@index([city, country])
@@ -279,9 +406,64 @@ model CreatorSocialProfile {
   createdAt             DateTime       @default(now())
   updatedAt             DateTime       @updatedAt
 
-  creator Creator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  // ── OAuth con API oficial (Meta Graph / TikTok) ──
+  // Cuando el creator conecta su cuenta, guardamos el token para pulls
+  // periódicos de insights. NULL = no conectado (solo scraping público).
+  externalId        String?           // IG Business Account ID / TikTok open_id
+  accessToken       String?           // long-lived token (60 días IG, 365 TikTok)
+  refreshToken      String?           // TikTok lo usa, IG no
+  tokenScope        String?           // scopes otorgados, separados por coma
+  tokenExpiresAt    DateTime?
+  connectedAt       DateTime?
+  disconnectedAt    DateTime?
+
+  creator  Creator         @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  insights SocialInsight[]
 
   @@unique([creatorId, platform])
+  @@index([externalId])
+}
+
+// Snapshots de insights de redes — vienen verificados de Graph API.
+// Un snapshot = una foto del momento. Nuevos pulls crean registros nuevos
+// (histórico) en lugar de pisar, para ver evolución en el tiempo.
+model SocialInsight {
+  id                String   @id @default(cuid())
+  socialProfileId   String
+  capturedAt        DateTime @default(now())
+  source            String   // "meta-graph" | "tiktok-for-developers" | ...
+
+  // ── Métricas base ──
+  followers          Int?
+  reach30d           Int?     // cuentas alcanzadas últimos 30 días
+  impressions30d     Int?
+  profileViews30d    Int?
+  websiteClicks30d   Int?
+  avgEngagementRate  Float?   // % sobre followers
+
+  // ── Demografía de la audiencia (porcentajes 0-100) ──
+  genderFemalePct  Float?
+  genderMalePct    Float?
+  genderOtherPct   Float?
+
+  // Grupos etarios. Nulls cuando la API no los provee.
+  age13_17Pct Float?
+  age18_24Pct Float?
+  age25_34Pct Float?
+  age35_44Pct Float?
+  age45_54Pct Float?
+  age55PlusPct Float?
+
+  // Top ciudades/países como JSON: [{ name: "Bogotá, CO", pct: 34.2 }, ...]
+  topCities    Json?
+  topCountries Json?
+
+  // Raw completo del API por si queremos re-extraer algo.
+  rawPayload Json?
+
+  socialProfile CreatorSocialProfile @relation(fields: [socialProfileId], references: [id], onDelete: Cascade)
+
+  @@index([socialProfileId, capturedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -326,6 +508,7 @@ model Campaign {
   attachments      CampaignAttachment[]
   suggestions      CampaignSuggestion[]
   inquiries        Inquiry[]
+  nicheLinks       CampaignNiche[]
 }
 
 model CampaignAttachment {
@@ -723,4 +906,297 @@ model ProfileView {
   viewer  User?   @relation(fields: [viewerId], references: [id], onDelete: SetNull)
 
   @@index([creatorId, viewedAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Academy — cursos, progreso, certificaciones, skills
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum SkillCategory {
+  STORYTELLING
+  PRODUCTION
+  EDITING
+  STRATEGY
+  BRAND
+  TECH
+  SOFT
+}
+
+model Skill {
+  id       String        @id @default(cuid())
+  name     String        @unique
+  slug     String        @unique
+  category SkillCategory
+  createdAt DateTime     @default(now())
+
+  courses        CourseSkill[]
+  creatorSkills  CreatorSkill[]
+}
+
+model Course {
+  id          String       @id @default(cuid())
+  slug        String       @unique
+  title       String
+  summary     String?
+  description String?
+  coverUrl    String?
+  level       CourseLevel  @default(BEGINNER)
+  status      CourseStatus @default(DRAFT)
+  durationMin Int?
+  priceCOP    Decimal?     @db.Decimal(14, 2)
+  publishedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  modules     CourseModule[]
+  enrollments CourseEnrollment[]
+  skills      CourseSkill[]
+
+  @@index([status, publishedAt])
+}
+
+model CourseModule {
+  id       String  @id @default(cuid())
+  courseId String
+  title    String
+  summary  String?
+  order    Int     @default(0)
+
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([courseId, order])
+}
+
+model Lesson {
+  id          String  @id @default(cuid())
+  moduleId    String
+  title       String
+  videoUrl    String?
+  bodyMd      String?
+  durationMin Int?
+  order       Int     @default(0)
+
+  module   CourseModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  progress LessonProgress[]
+
+  @@index([moduleId, order])
+}
+
+model CourseSkill {
+  id       String @id @default(cuid())
+  courseId String
+  skillId  String
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, skillId])
+}
+
+model CourseEnrollment {
+  id          String           @id @default(cuid())
+  userId      String
+  courseId    String
+  status      EnrollmentStatus @default(ENROLLED)
+  progressPct Int              @default(0)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  lessonProgress LessonProgress[]
+  certificate  Certificate?
+
+  @@unique([userId, courseId])
+  @@index([userId, status])
+}
+
+model LessonProgress {
+  id           String   @id @default(cuid())
+  enrollmentId String
+  lessonId     String
+  completedAt  DateTime @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson           @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+}
+
+model Certificate {
+  id              String   @id @default(cuid())
+  enrollmentId    String   @unique
+  userId          String
+  certificateUrl  String?
+  skillsEarned    String[] @default([])
+  issuedAt        DateTime @default(now())
+
+  enrollment CourseEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+}
+
+// Skill declarada por la creadora (auto-reportada, no ganada)
+model CreatorSkill {
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  level     Int      @default(1) // 1-5 self-reported
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nation — eventos, asistencia, networking
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum EventType {
+  MEETUP
+  WORKSHOP
+  PANEL
+  PARTY
+  CONFERENCE
+  WEBINAR
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+  COMPLETED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITLIST
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+enum SpeakerRole {
+  SPEAKER
+  PANELIST
+  HOST
+  SPECIAL_GUEST
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  slug        String      @unique
+  name        String
+  description String?
+  type        EventType   @default(MEETUP)
+  city        String?
+  venue       String?
+  startAt     DateTime
+  endAt       DateTime?
+  capacity    Int?
+  coverUrl    String?
+  status      EventStatus @default(DRAFT)
+  organizerId String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  organizer     User?               @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: SetNull)
+  speakers      EventSpeaker[]
+  registrations EventRegistration[]
+  tags          EventTag[]
+
+  @@index([status, startAt])
+  @@index([city, startAt])
+}
+
+model EventSpeaker {
+  id      String      @id @default(cuid())
+  eventId String
+  userId  String
+  role    SpeakerRole @default(SPEAKER)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model EventRegistration {
+  id             String             @id @default(cuid())
+  eventId        String
+  userId         String
+  status         RegistrationStatus @default(REGISTERED)
+  registeredAt   DateTime           @default(now())
+  attendedAt     DateTime?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, status])
+}
+
+model EventTag {
+  id      String @id @default(cuid())
+  eventId String
+  tag     String
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, tag])
+  @@index([tag])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Crossover — timeline unificado de logros del usuario
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AchievementType {
+  CAMPAIGN_COMPLETED
+  COURSE_COMPLETED
+  EVENT_ATTENDED
+  EVENT_SPEAKER
+  CERTIFICATE_EARNED
+  BADGE_EARNED
+}
+
+model UserAchievement {
+  id          String          @id @default(cuid())
+  userId      String
+  type        AchievementType
+  title       String
+  description String?
+  emoji       String?
+  sourceId    String?         // id de Campaign, Course, Event, etc.
+  linkUrl     String?
+  isPublic    Boolean         @default(true)
+  issuedAt    DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+  @@index([userId, type])
 }

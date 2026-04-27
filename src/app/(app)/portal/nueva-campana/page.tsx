@@ -6,6 +6,9 @@ import { getNextCampaignCode } from "@/lib/campaign-code";
 import { notifyCreatorsNewCampaignMatch } from "@/lib/notify";
 import { suggestCreatorsForCampaign } from "@/lib/suggest-creators";
 import { uploadCampaignAttachmentToDrive } from "@/lib/google-drive-campaign";
+import { aiLimiter, checkLimit } from "@/lib/ratelimit";
+import { listActiveNiches, setCampaignNiches } from "@/lib/niches-db";
+import { slugifyNiche } from "@/lib/niches";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +25,15 @@ async function createCampaign(formData: FormData) {
 
   const session = await auth();
   if (session?.user?.role !== "CLIENT") return;
+
+  // Rate-limit para contener costos de Claude (CRÍTICA-3).
+  const { allowed } = await checkLimit(
+    aiLimiter(),
+    `user:${session.user.id}:generate-brief`,
+  );
+  if (!allowed) {
+    redirect("/portal/nueva-campana?error=ratelimit");
+  }
 
   const membership = await prisma.clientMember.findFirst({
     where: { userId: session.user.id },
@@ -72,10 +84,16 @@ async function createCampaign(formData: FormData) {
 
   const briefOptimized = await generateBrief(briefInput, briefAttachments);
 
-  const requiredNiches = ((formData.get("requiredNiches") as string) || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // NicheMultiSelect ahora devuelve slugs. Guardamos en String[] legacy
+  // (para compat) y poblamos la junction CampaignNiche normalizada.
+  const requiredNiches = [
+    ...new Set(
+      ((formData.get("requiredNiches") as string) || "")
+        .split(",")
+        .map((s) => slugifyNiche(s))
+        .filter(Boolean),
+    ),
+  ];
   const requiredCity = (formData.get("requiredCity") as string)?.trim() || null;
   const minFollowersRaw = (formData.get("minFollowers") as string)?.trim();
   const minFollowers = minFollowersRaw
@@ -110,6 +128,13 @@ async function createCampaign(formData: FormData) {
       requiredAudienceDesc,
     },
   });
+
+  // MEJORA-10: poblar la junction normalizada.
+  if (requiredNiches.length > 0) {
+    await setCampaignNiches(campaign.id, requiredNiches).catch((err) =>
+      console.error("[createCampaign] setCampaignNiches failed:", err),
+    );
+  }
 
   // Subir adjuntos a Drive y registrar en DB (best-effort).
   for (let i = 0; i < attachmentFiles.length; i++) {
@@ -170,6 +195,8 @@ export default async function NuevaCampanaClientePage({
   if (session?.user?.role !== "CLIENT") redirect("/");
 
   const params = await searchParams;
+  const dbNiches = await listActiveNiches();
+  const nicheOptions = dbNiches.map((n) => ({ slug: n.slug, label: n.labelEs }));
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -191,6 +218,11 @@ export default async function NuevaCampanaClientePage({
           {params.error === "required" && (
             <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
               El nombre y la descripción son obligatorios.
+            </div>
+          )}
+          {params.error === "ratelimit" && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive">
+              Alcanzaste el límite de generación de briefs. Intentá en un rato.
             </div>
           )}
 
@@ -262,7 +294,10 @@ export default async function NuevaCampanaClientePage({
                 <Label className="text-xs text-muted-foreground">
                   Nichos
                 </Label>
-                <NicheMultiSelect name="requiredNiches" />
+                <NicheMultiSelect
+                  name="requiredNiches"
+                  options={nicheOptions}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">

@@ -1,19 +1,47 @@
 "use client";
 
 import { useState } from "react";
-import { NICHES } from "@/lib/niches";
+import { NICHES, slugifyNiche } from "@/lib/niches";
+
+interface NicheOption {
+  slug: string;
+  label: string;
+}
 
 interface Props {
   name: string;
-  defaultValue?: string[];
+  defaultValue?: string[]; // puede venir como slugs o labels — normalizamos
+  /** Lista dinámica desde DB. Si no se pasa, usa NICHES hardcoded. */
+  options?: NicheOption[];
 }
 
-export function NicheMultiSelect({ name, defaultValue = [] }: Props) {
-  const [selected, setSelected] = useState<string[]>(defaultValue);
+function defaultOptions(): NicheOption[] {
+  return NICHES.map((label) => ({ slug: slugifyNiche(label), label }));
+}
 
-  const toggle = (niche: string) => {
+export function NicheMultiSelect({
+  name,
+  defaultValue = [],
+  options,
+}: Props) {
+  const opts = options && options.length > 0 ? options : defaultOptions();
+  const slugSet = new Set(opts.map((o) => o.slug));
+
+  // Normalizar defaultValue: puede venir como slugs o labels. Convertir todo a slug
+  // y quedarse solo con los que matcheen alguna option.
+  const initial = Array.from(
+    new Set(
+      defaultValue
+        .map((v) => slugifyNiche(v))
+        .filter((s) => slugSet.has(s)),
+    ),
+  );
+
+  const [selected, setSelected] = useState<string[]>(initial);
+
+  const toggle = (slug: string) => {
     setSelected((prev) =>
-      prev.includes(niche) ? prev.filter((n) => n !== niche) : [...prev, niche],
+      prev.includes(slug) ? prev.filter((n) => n !== slug) : [...prev, slug],
     );
   };
 
@@ -21,27 +49,27 @@ export function NicheMultiSelect({ name, defaultValue = [] }: Props) {
     <div>
       <input type="hidden" name={name} value={selected.join(",")} />
       <div className="flex flex-wrap gap-1.5">
-        {NICHES.map((niche) => {
-          const active = selected.includes(niche);
+        {opts.map((opt) => {
+          const active = selected.includes(opt.slug);
           return (
             <button
-              key={niche}
+              key={opt.slug}
               type="button"
-              onClick={() => toggle(niche)}
+              onClick={() => toggle(opt.slug)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                 active
                   ? "bg-primary text-primary-foreground border-primary shadow-sm"
                   : "bg-secondary text-muted-foreground border-input/60 hover:border-input hover:text-foreground"
               }`}
             >
-              {niche}
+              {opt.label}
             </button>
           );
         })}
       </div>
       {selected.length === 0 && (
         <p className="text-[11px] text-muted-foreground mt-1.5">
-          Seleccioná uno o varios nichos que encajen con tu campaña.
+          Seleccioná uno o varios nichos.
         </p>
       )}
     </div>

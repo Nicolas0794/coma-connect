@@ -9,9 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CreatorAvatarsBg } from "@/components/creator-avatars-bg";
 import { generateUniqueSlug } from "@/lib/creator-profile";
+import { checkLimit, ipKey, registerLimiter } from "@/lib/ratelimit";
 
 async function register(formData: FormData) {
   "use server";
+  const { allowed } = await checkLimit(registerLimiter(), await ipKey());
+  if (!allowed) redirect("/register?error=ratelimit");
+
   const name = ((formData.get("name") as string) ?? "").trim();
   const email = ((formData.get("email") as string) ?? "").toLowerCase().trim();
   const password = (formData.get("password") as string) ?? "";
@@ -84,6 +88,7 @@ export default async function RegisterPage({
   const errorMessages: Record<string, string> = {
     validation: "Completá todos los campos. La contraseña debe tener 8+ caracteres.",
     exists: "Ya existe una cuenta con ese email.",
+    ratelimit: "Demasiados intentos. Esperá unos minutos antes de volver a intentar.",
   };
 
   return (

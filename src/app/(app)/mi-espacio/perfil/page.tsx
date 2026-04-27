@@ -57,7 +57,7 @@ const STATUS_LABEL: Record<string, string> = {
   SUSPENDED: "Suspendido",
 };
 
-type SP = Promise<{ error?: string; sent?: string }>;
+type SP = Promise<{ error?: string; sent?: string; autofilled?: string }>;
 
 export default async function PerfilPage({ searchParams }: { searchParams: SP }) {
   const session = await auth();
@@ -93,7 +93,7 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
     take: 10,
   });
 
-  const { error, sent } = await searchParams;
+  const { error, sent, autofilled } = await searchParams;
   const ig = creator.socialProfiles.find((s) => s.platform === "INSTAGRAM");
   const tk = creator.socialProfiles.find((s) => s.platform === "TIKTOK");
 
@@ -112,9 +112,41 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
   ];
 
   const canSubmit = creator.profileCompleteness >= 60 && creator.profileStatus === "DRAFT";
+  const showAutofillHero =
+    !creator.autofillAt && creator.profileCompleteness < 40;
 
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
+      {/* Hero de autofill para perfiles nuevos / incompletos */}
+      {showAutofillHero && (
+        <Link
+          href="/mi-espacio/perfil/autofill"
+          className="group block rounded-2xl border border-[#FF4B2C]/30 bg-gradient-to-br from-[#FF4B2C]/8 via-[#FF7A66]/5 to-transparent p-5 sm:p-6 hover:border-[#FF4B2C]/60 hover:shadow-[0_8px_32px_-12px_rgba(255,75,44,0.35)] transition-all"
+        >
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-[#FF4B2C] to-[#FF7A66] flex items-center justify-center text-white text-2xl shrink-0 shadow-sm">
+              ✨
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.16em] text-[#FF4B2C] font-semibold mb-1">
+                Empezá rápido
+              </p>
+              <h2 className="text-lg sm:text-xl font-semibold mb-1.5 tracking-tight">
+                Completar mi perfil con IA desde Instagram
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Pegás tu @handle y Claude lee tu perfil público para proponer
+                headline, nichos, tipos de contenido y tarifa base. Vos revisás
+                y ajustás antes de guardar. Te ahorra ~10 min.
+              </p>
+            </div>
+            <span className="text-[#FF4B2C] font-semibold text-sm shrink-0 group-hover:translate-x-0.5 transition-transform">
+              →
+            </span>
+          </div>
+        </Link>
+      )}
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl text-foreground">Tu perfil Connect</h1>
@@ -122,7 +154,21 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
             Este es el perfil público que las marcas van a ver.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!showAutofillHero && (
+            <Link
+              href="/mi-espacio/perfil/autofill"
+              className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[#FF4B2C] to-[#FF7A66] px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:opacity-90 transition"
+            >
+              ✨ Autocompletar con IA
+            </Link>
+          )}
+          <Link
+            href="/mi-espacio/perfil/metricas"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold hover:bg-muted transition"
+          >
+            📊 Mis métricas
+          </Link>
           <Badge variant="outline">{STATUS_LABEL[creator.profileStatus]}</Badge>
           {creator.profileStatus === "PUBLISHED" && creator.slug && (
             <Link
@@ -137,6 +183,12 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
       </div>
 
       {/* Alertas */}
+      {autofilled === "1" && (
+        <div className="rounded-lg bg-[#D6E889]/25 border border-[#D6E889]/60 px-4 py-3 text-sm">
+          ✨ Completamos tu perfil con lo que leímos de tu Instagram. Revisá
+          cada sección y ajustá lo que haga falta antes de enviar a revisión.
+        </div>
+      )}
       {sent === "1" && (
         <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
           ✓ Perfil enviado a revisión. Te avisaremos cuando el equipo de CoMa lo apruebe.
@@ -145,6 +197,11 @@ export default async function PerfilPage({ searchParams }: { searchParams: SP })
       {error === "incomplete" && (
         <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
           Necesitás al menos 60% de completitud para enviar a revisión.
+        </div>
+      )}
+      {error === "validation" && (
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          Revisá los datos ingresados — el formato de alguno no es válido.
         </div>
       )}
 

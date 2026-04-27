@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { recomputeCreatorRating } from "@/lib/creator-triggers";
+import { formToObject, reviewResponseSchema } from "@/lib/validators";
 
 async function requireCreator() {
   const session = await auth();
@@ -19,9 +20,9 @@ async function requireCreator() {
 
 export async function respondToReview(formData: FormData) {
   const creator = await requireCreator();
-  const id = formData.get("id") as string;
-  const response = ((formData.get("response") as string) ?? "").trim();
-  if (!id || !response) return;
+  const parsed = reviewResponseSchema.safeParse(formToObject(formData));
+  if (!parsed.success) return;
+  const { id, response } = parsed.data;
 
   const review = await prisma.creatorReview.findFirst({
     where: { id, creatorId: creator.id },

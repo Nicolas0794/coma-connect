@@ -9,7 +9,11 @@ export async function findPublicCreatorBySlug(slug: string) {
       profileVisibility: { in: ["PUBLIC", "CLIENTS_ONLY"] },
     },
     include: {
-      socialProfiles: true,
+      socialProfiles: {
+        include: {
+          insights: { orderBy: { capturedAt: "desc" }, take: 1 },
+        },
+      },
       services: {
         where: { isActive: true },
         orderBy: { order: "asc" },
@@ -22,6 +26,46 @@ export async function findPublicCreatorBySlug(slug: string) {
         include: { client: { select: { name: true, logoUrl: true } } },
         orderBy: { createdAt: "desc" },
         take: 20,
+      },
+      user: {
+        select: {
+          id: true,
+          creatorSkills: {
+            include: { skill: true },
+            orderBy: [{ level: "desc" }, { createdAt: "desc" }],
+          },
+          achievements: {
+            where: { isPublic: true },
+            orderBy: { issuedAt: "desc" },
+            take: 30,
+          },
+          certificates: {
+            orderBy: { issuedAt: "desc" },
+            include: {
+              enrollment: {
+                select: {
+                  course: { select: { slug: true, title: true } },
+                },
+              },
+            },
+          },
+          eventSpeakerships: {
+            where: { event: { status: { in: ["PUBLISHED", "COMPLETED"] } } },
+            include: {
+              event: {
+                select: {
+                  id: true,
+                  slug: true,
+                  name: true,
+                  startAt: true,
+                  city: true,
+                  type: true,
+                },
+              },
+            },
+            orderBy: { event: { startAt: "desc" } },
+          },
+        },
       },
       _count: {
         select: {
@@ -45,6 +89,9 @@ export interface DiscoveryFilters {
   verifiedOnly?: boolean;
   minFollowers?: number;
   minRating?: number;
+  skillSlug?: string;
+  academyOnly?: boolean;
+  speakerOnly?: boolean;
   sort?: SortKey;
   limit?: number;
   offset?: number;
@@ -92,6 +139,24 @@ function buildWhere(filters: DiscoveryFilters): Prisma.CreatorWhereInput {
   }
   if (filters.minRating && filters.minRating > 0) {
     where.avgRating = { gte: filters.minRating };
+  }
+
+  const userConditions: Prisma.UserWhereInput[] = [];
+  if (filters.skillSlug) {
+    userConditions.push({
+      creatorSkills: { some: { skill: { slug: filters.skillSlug } } },
+    });
+  }
+  if (filters.academyOnly) {
+    userConditions.push({ certificates: { some: {} } });
+  }
+  if (filters.speakerOnly) {
+    userConditions.push({ eventSpeakerships: { some: {} } });
+  }
+  if (userConditions.length > 0) {
+    where.user = {
+      is: userConditions.length === 1 ? userConditions[0] : { AND: userConditions },
+    };
   }
 
   return where;

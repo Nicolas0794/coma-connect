@@ -2,11 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { uploadDocumentToDrive } from "@/lib/google-drive-docs";
+import { checkLimit, uploadDocLimiter } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const { allowed, reset } = await checkLimit(
+    uploadDocLimiter(),
+    `user:${session.user.id}`,
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Demasiadas subidas. Intentá en un rato." },
+      { status: 429, headers: { "Retry-After": String(reset) } },
+    );
   }
 
   const formData = await req.formData();
